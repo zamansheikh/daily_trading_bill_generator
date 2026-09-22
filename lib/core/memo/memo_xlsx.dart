@@ -18,11 +18,17 @@ class MemoXlsx {
   static const _black = '#000000';
   static const _white = '#FFFFFF';
   static const _grey = '#EDEDED';
-  static const _latin = 'Arial';
-  static const _bangla = 'Nirmala UI';
 
-  /// Column widths (Excel character units) for one half of the table.
-  static const List<double> _half = [3.2, 9.6, 13.0, 10.5, 5.6, 4.2, 6.8, 8.2];
+  /// Width / height of assets/images/memo_banner.png (2022 x 140).
+  static const double _bannerAspect = 2022 / 140;
+  // The user's own Excel memo template uses Kalpurush throughout.
+  static const _latin = 'Kalpurush';
+  static const _bangla = 'Kalpurush';
+
+  /// Column widths (Excel character units) for one half of the table, taken
+  /// from the user's Excel memo template (about 106 units in total, which
+  /// prints on A4 portrait at 100%).
+  static const List<double> _half = [2.3, 9.3, 11.1, 8.6, 4.7, 4.6, 5.2, 7.5];
 
   List<int> build(MemoDocument doc) {
     final wb = Workbook();
@@ -35,33 +41,42 @@ class MemoXlsx {
     }
 
     // Letterhead: rows 1-3, image centred over the full width.
-    ws.getRangeByName('A1:P3').merge();
-    ws.setRowHeightInPixels(1, 20);
-    ws.setRowHeightInPixels(2, 20);
-    ws.setRowHeightInPixels(3, 20);
+    // Letterhead over rows 1-5, as in the template. The picture spans the
+    // full width of the 16 columns (Excel draws a column of width w at about
+    // w x 7 + 5 px) and the five rows add up to exactly its height, so it
+    // fills the merged block edge to edge.
+    ws.getRangeByName('A1:P5').merge();
+    final totalWidthPx = _half.fold(0.0, (s, w) => s + w * 7 + 5) * 2;
+    final bannerWidth = totalWidthPx.floor() - 2;
+    final bannerHeight = (bannerWidth / _bannerAspect).round();
+    final bannerRowPx = (bannerHeight / 5).floor();
+    for (var r = 1; r <= 5; r++) {
+      ws.setRowHeightInPixels(r, (r == 5 ? bannerHeight - bannerRowPx * 4 : bannerRowPx).toDouble());
+    }
     final pic = ws.pictures.addStream(1, 1, bannerImage);
-    pic.width = 740;
-    pic.height = 52;
-    _box(ws.getRangeByName('A1:P3'));
+    pic.width = bannerWidth;
+    pic.height = bannerHeight;
+    _box(ws.getRangeByName('A1:P5'));
 
-    // Header block.
-    ws.setRowHeightInPixels(4, 24);
-    ws.setRowHeightInPixels(5, 24);
-    _label(ws.getRangeByName('A4:B4'), 'Memo No.');
-    _value(ws.getRangeByName('C4:E4'), doc.memoNumber.toString(), size: 11);
-    _value(ws.getRangeByName('F4:K4'), doc.poNumber, size: 11);
-    _label(ws.getRangeByName('L4:N4'), 'Order date:');
-    _value(ws.getRangeByName('O4:P4'), doc.orderDate == null ? '' : _date(doc.orderDate!), size: 10);
-    _label(ws.getRangeByName('A5:B5'), 'Name/address:', size: 8);
-    _value(ws.getRangeByName('C5:K5'), doc.outletDisplayName, size: 10);
-    _label(ws.getRangeByName('L5:N5'), 'Supply Date:');
-    _value(ws.getRangeByName('O5:P5'), _date(doc.supplyDate), size: 11);
+    // Header block: rows 6 and 7.
+    ws.setRowHeightInPixels(6, 23);
+    ws.setRowHeightInPixels(7, 25);
+    _label(ws.getRangeByName('A6:B6'), 'Memo No.');
+    _value(ws.getRangeByName('C6:F6'), doc.memoNumber.toString(), size: 11);
+    _value(ws.getRangeByName('G6:K6'), doc.poNumber, size: 11);
+    _label(ws.getRangeByName('L6:M6'), 'Order date:', size: 8);
+    _value(ws.getRangeByName('N6:P6'), doc.orderDate == null ? '' : _date(doc.orderDate!), size: 10);
+    _label(ws.getRangeByName('A7:B7'), 'Name/address:', size: 7);
+    _value(ws.getRangeByName('C7:K7'), doc.outletDisplayName, size: 10);
+    _label(ws.getRangeByName('L7:M7'), 'Supply Date:', size: 8);
+    _value(ws.getRangeByName('N7:P7'), _date(doc.supplyDate), size: 11);
 
     // Table header.
     const headers = ['Sl.', 'Product Code', 'Product Name', 'Product Name', 'Size', 'Qty', 'Unit price', 'Amount Tk.'];
-    ws.setRowHeightInPixels(6, 26);
+    const headerRow = 8;
+    ws.setRowHeightInPixels(headerRow, 18);
     for (var c = 0; c < 16; c++) {
-      final r = ws.getRangeByIndex(6, c + 1);
+      final r = ws.getRangeByIndex(headerRow, c + 1);
       r.setText(headers[c % 8]);
       final s = r.cellStyle;
       s.backColor = _black;
@@ -77,10 +92,13 @@ class MemoXlsx {
 
     // Rows.
     final rowsPerColumn = (doc.rows.length + 1) ~/ 2;
-    const firstRow = 7;
+    const firstRow = headerRow + 1;
+    // 36 rows (Best Buy) print at 21 px; 39 rows (Daily Shopping) at 20 px so
+    // the page still fits A4 portrait.
+    final rowPx = rowsPerColumn > 36 ? 20 : 21;
     for (var i = 0; i < rowsPerColumn; i++) {
       final excelRow = firstRow + i;
-      ws.setRowHeightInPixels(excelRow, 19);
+      ws.setRowHeightInPixels(excelRow, rowPx.toDouble());
       final shaded = i.isOdd;
       _memoRow(ws, excelRow, 1, doc.rows[i], shaded);
       final j = i + rowsPerColumn;
@@ -132,15 +150,21 @@ class MemoXlsx {
 
     // Print setup: one Letter page, centred.
     final ps = ws.pageSetup;
-    ps.paperSize = ExcelPaperSize.paperLetter;
+    ps.paperSize = ExcelPaperSize.paperA4;
     ps.orientation = ExcelPageOrientation.portrait;
+    ps.isFitToPage = true;
+    // The library only writes <pageSetup> (and with it the A4 paper size)
+    // when something differs from its defaults; 300 dpi is a harmless trigger.
+    ps.printQuality = 300;
     ps.fitToPagesWide = 1;
     ps.fitToPagesTall = 1;
     ps.isCenterHorizontally = true;
-    ps.topMargin = 0.3;
-    ps.bottomMargin = 0.3;
-    ps.leftMargin = 0.3;
-    ps.rightMargin = 0.3;
+    ps.topMargin = 0.2;
+    ps.bottomMargin = 0.2;
+    ps.leftMargin = 0.25;
+    ps.rightMargin = 0.2;
+    ps.headerMargin = 0;
+    ps.footerMargin = 0;
     ps.printArea = 'A1:P$sigRow';
 
     // The library's own calc engine is not used: it mis-evaluated the total

@@ -34,18 +34,18 @@ void main() {
     expect(shared, contains('Almond'));
     expect(shared, contains('কাঠবাদাম'));
     expect(shared, contains('১'));
-    expect(sheet, contains('ROUND(SUM(H7:H42)+SUM(P7:P42),2)'));
-    expect(sheet, contains('ROUND(F8*G8,2)'));
+    expect(sheet, contains('ROUND(SUM(H9:H44)+SUM(P9:P44),2)'));
+    expect(sheet, contains('ROUND(F10*G10,2)'));
     // Formula cells are numeric with exact cached results (Almond 100gm: 12 x 213.20).
-    final h8 = RegExp(r'<c r="H8"[^>]*>.*?</c>').firstMatch(sheet)!.group(0)!;
+    final h8 = RegExp(r'<c r="H10"[^>]*>.*?</c>').firstMatch(sheet)!.group(0)!;
     expect(h8, isNot(contains('t="str"'))); // no type attribute = numeric cell
     expect(h8, contains('<v>2558.4</v>'));
     expect(h8, isNot(contains('3999')));
-    final p43 = RegExp(r'<c r="P43"[^>]*>.*?</c>').firstMatch(sheet)!.group(0)!;
+    final p43 = RegExp(r'<c r="P45"[^>]*>.*?</c>').firstMatch(sheet)!.group(0)!;
     expect(p43, contains('<v>25158.6</v>'));
     expect(sheet, isNot(contains('missing formula')));
-    // Ajwain (row 7, not ordered) is a plain 0, not a formula over empty cells.
-    final h7 = RegExp(r'<c r="H7"[^>]*>.*?</c>').firstMatch(sheet)!.group(0)!;
+    // Ajwain (row 9, not ordered) is a plain 0, not a formula over empty cells.
+    final h7 = RegExp(r'<c r="H9"[^>]*>.*?</c>').firstMatch(sheet)!.group(0)!;
     expect(h7, isNot(contains('<f>')));
     expect(h7, contains('<v>0.0</v>'));
     // Labels sit in the top-left cell of their merged ranges.
@@ -55,7 +55,7 @@ void main() {
     expect(shared, contains('Name/address:'));
     expect(shared, contains('Amount in Total'));
     expect(zip.files.any((e) => e.name.startsWith('xl/media/')), isTrue, reason: 'banner image embedded');
-    // 71 rows -> 36 per column -> rows 7..42.
-    expect(sheet, contains('r="42"'));
+    // 71 rows -> 36 per column -> rows 9..44.
+    expect(sheet, contains('r="44"'));
   });
 }

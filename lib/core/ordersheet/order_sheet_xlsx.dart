@@ -238,6 +238,9 @@ class OrderSheetXlsx {
     ps.paperSize = ExcelPaperSize.paperA4;
     ps.orientation = ExcelPageOrientation.portrait;
     ps.isFitToPage = true;
+    // The library only writes <pageSetup> (and with it the A4 paper size)
+    // when something differs from its defaults; 300 dpi is a harmless trigger.
+    ps.printQuality = 300;
     ps.fitToPagesWide = blockCount == 0 ? 1 : blockCount;
     ps.fitToPagesTall = 1;
     // Repeat the item columns on every printed page (the library derives the
