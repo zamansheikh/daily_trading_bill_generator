@@ -23,8 +23,9 @@ void main() {
     final columns = [for (final o in orders) OrderSheetColumn(po: o, outletDisplayName: defaultOutletDisplayName(o.outletName, note: o.note))];
     expect(columns.firstWhere((c) => c.po.poNumber == 'PO-3800-01-26-053551').label, 'Barishal-2');
     expect(columns.map((c) => c.label), contains('Cox’s-Bazar-2'));
+    expect(columns.map((c) => c.label), contains('Board-Bazar-Gazipur'));
 
-    final bytes = OrderSheetXlsx(catalog).build(columns, title: 'Order sheet SEP-2 (DLCL)');
+    final bytes = OrderSheetXlsx(catalog).build(sortAlphabetically(columns), title: 'Order sheet SEP-2 (DLCL)');
     Directory('build/test_memos').createSync(recursive: true);
     File('build/test_memos/Order sheet SEP-2 (DLCL).xlsx').writeAsBytesSync(bytes);
 

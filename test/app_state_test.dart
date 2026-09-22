@@ -53,6 +53,18 @@ void main() {
       final almond100 = state.catalog.byDtCode('5000000561')!;
       expect(state.catalog.price(Chain.bestBuy, almond100.id), 213.20);
 
+      // Order sheet: the user's outlet sequence is remembered and applied.
+      final all = state.orders.toList();
+      final alpha = state.orderSheetColumns(all).map((c) => c.label).toList();
+      expect(alpha, equals([...alpha]..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()))), reason: 'alphabetical when nothing is remembered');
+      final custom = [...alpha.reversed];
+      await state.saveOutletOrder(custom);
+      expect(state.orderSheetColumns(all).map((c) => c.label).toList(), custom);
+      await state.setOutletsPerBlock(5);
+      final sheetPath = await state.generateOrderSheet(state.orderSheetColumns(all), title: 'Order sheet test');
+      expect(File(sheetPath).lengthSync(), greaterThan(5000));
+      expect(p.basename(sheetPath), 'Order sheet test.xlsx');
+
       // The outlet name edit is remembered for the next import of that outlet.
       expect(await db.outletDisplayName('BBUY-Mogbazar-Wireless Gate'), 'BBUY Grocery Mogbazar Wireless Gate');
     } finally {

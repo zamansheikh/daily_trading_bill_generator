@@ -19,12 +19,17 @@ class OrderSheetColumn {
         ? po.note
         : outletDisplayName.replaceFirst(RegExp(r'^Daily Shopping\s*-?\s*', caseSensitive: false), '');
     return raw
+        .replaceAll(',', ' ')
         .trim()
         .split(RegExp(r'\s+'))
         .map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1).toLowerCase())
         .join('-');
   }
 }
+
+/// Alphabetical outlet order, the default when the user has not sorted.
+List<OrderSheetColumn> sortAlphabetically(List<OrderSheetColumn> columns) =>
+    [...columns]..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
 
 /// Builds the consolidated order sheet: products down the side, one column
 /// per purchase order, quantities in the grid, a subtotal column after every
@@ -40,8 +45,10 @@ class OrderSheetXlsx {
   static const _headFill = '#D9D9D9';
   static const _totalFill = '#FFF2CC';
 
+  /// Columns are written in the order given; sort them first (see
+  /// [sortAlphabetically]) or pass the user's own outlet sequence.
   List<int> build(List<OrderSheetColumn> columns, {required String title}) {
-    final sorted = [...columns]..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+    final sorted = [...columns];
     final chain = sorted.isEmpty || sorted.first.po.chain == Chain.unknown ? Chain.dailyShopping : sorted.first.po.chain;
 
     // Product rows: the chain's catalogue in print order, plus anything

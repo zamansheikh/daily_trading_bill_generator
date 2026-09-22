@@ -44,8 +44,10 @@ restored, and the order still reconciles against the PO's printed total.
 
 ### Order sheet
 
-"Order sheet" on the Import screen builds the consolidated
-products-by-outlets workbook for the selected orders
+"Order sheet" on the Import screen opens a page where the selected outlets
+can be dragged into your own sequence (remembered for next time; new outlets
+are appended alphabetically) and the outlets-per-block count set, then
+builds the consolidated products-by-outlets workbook
 (`lib/core/ordersheet/order_sheet_xlsx.dart`), in the layout of the
 reference sheet: one column per PO with the outlet name and PO number,
 quantities in the grid, a `Sheet-N-TOTAL` column after every 11 outlets, a

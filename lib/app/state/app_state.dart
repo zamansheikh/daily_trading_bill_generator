@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -77,6 +78,12 @@ class AppState extends ChangeNotifier {
 
   /// Also write an Excel workbook next to each memo PDF.
   bool exportXlsx = true;
+
+  /// Outlets per block ("Sheet-N-TOTAL" every N columns) on the order sheet.
+  int outletsPerBlock = 11;
+
+  /// The user's outlet sequence for the order sheet: label -> position.
+  Map<String, int> outletOrder = {};
   DateTime supplyDate = DateTime.now();
   bool busy = false;
   String busyMessage = '';
@@ -86,6 +93,11 @@ class AppState extends ChangeNotifier {
     nextMemoNumber = int.tryParse(await db.getSetting('next_memo_number') ?? '1') ?? 1;
     learnPrices = (await db.getSetting('learn_prices') ?? '1') == '1';
     exportXlsx = (await db.getSetting('export_xlsx') ?? '1') == '1';
+    outletsPerBlock = int.tryParse(await db.getSetting('outlets_per_block') ?? '11') ?? 11;
+    final rawOrder = await db.getSetting('outlet_order');
+    if (rawOrder != null) {
+      outletOrder = (jsonDecode(rawOrder) as Map<String, dynamic>).map((k, v) => MapEntry(k, (v as num).toInt()));
+    }
     outputDir = await db.getSetting('output_dir') ?? await _defaultOutputDir();
     await refreshHistory();
     notifyListeners();
@@ -410,13 +422,38 @@ class AppState extends ChangeNotifier {
   // Order sheet
   // ---------------------------------------------------------------------------
 
-  /// Builds the consolidated order sheet for [targets] and saves it under the
-  /// supply-date folder. Returns the file path.
-  Future<String> generateOrderSheet(List<ImportedOrder> targets, {required String title}) async {
+  /// Columns for [targets] in the remembered sequence: outlets the user has
+  /// sorted before come first in that order, the rest follow alphabetically.
+  List<OrderSheetColumn> orderSheetColumns(List<ImportedOrder> targets) {
+    final columns = sortAlphabetically([for (final o in targets) OrderSheetColumn(po: o.po, outletDisplayName: o.outletDisplayName)]);
+    int rank(OrderSheetColumn c) => outletOrder[c.label.toLowerCase()] ?? 1 << 30;
+    final ranked = [...columns]..sort((a, b) {
+        final r = rank(a).compareTo(rank(b));
+        return r != 0 ? r : a.label.toLowerCase().compareTo(b.label.toLowerCase());
+      });
+    return ranked;
+  }
+
+  /// Remembers the outlet sequence the user arranged.
+  Future<void> saveOutletOrder(List<String> labels) async {
+    outletOrder = {for (var i = 0; i < labels.length; i++) labels[i].toLowerCase(): i};
+    await db.setSetting('outlet_order', jsonEncode(outletOrder));
+    notifyListeners();
+  }
+
+  Future<void> setOutletsPerBlock(int n) async {
+    outletsPerBlock = n.clamp(1, 60);
+    await db.setSetting('outlets_per_block', '$outletsPerBlock');
+    notifyListeners();
+  }
+
+  /// Builds the consolidated order sheet from [columns] (already in the
+  /// wanted sequence) and saves it under the supply-date folder. Returns the
+  /// file path.
+  Future<String> generateOrderSheet(List<OrderSheetColumn> columns, {required String title}) async {
     final dir = p.join(outputDir, DateFormat('yyyy-MM-dd').format(supplyDate));
     await Directory(dir).create(recursive: true);
-    final columns = [for (final o in targets) OrderSheetColumn(po: o.po, outletDisplayName: o.outletDisplayName)];
-    final bytes = OrderSheetXlsx(catalog).build(columns, title: title);
+    final bytes = OrderSheetXlsx(catalog, outletsPerBlock: outletsPerBlock).build(columns, title: title);
     final safe = title.replaceAll(RegExp(r'[\\/:*?"<>|]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     final path = p.join(dir, '$safe.xlsx');
     await File(path).writeAsBytes(bytes, flush: true);

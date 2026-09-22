@@ -1,8 +1,6 @@
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:path/path.dart' as p;
 import 'package:open_filex/open_filex.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -10,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'order_sheet_screen.dart';
 import 'po_detail_screen.dart';
 
 class ImportScreen extends StatefulWidget {
@@ -116,22 +115,7 @@ class _ImportScreenState extends State<ImportScreen> {
     final state = context.read<AppState>();
     final targets = state.orders.where((o) => o.selected).toList();
     if (targets.isEmpty) return;
-    final title = await promptText(
-      context,
-      title: 'Order sheet name',
-      initial: 'Order sheet ${DateFormat('dd-MMM-yyyy').format(state.supplyDate)}',
-      hint: 'e.g. Order sheet SEP-2 (DLCL)',
-    );
-    if (title == null || title.trim().isEmpty || !mounted) return;
-    final path = await state.generateOrderSheet(targets, title: title.trim());
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Order sheet saved: ${p.basename(path)} (${targets.length} POs)'),
-      action: SnackBarAction(
-        label: isMobile ? 'Share' : 'Open',
-        onPressed: () => isMobile ? SharePlus.instance.share(ShareParams(files: [XFile(path)])) : OpenFilex.open(path),
-      ),
-    ));
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrderSheetScreen(orders: targets)));
   }
 
   Future<void> _pickSupplyDate() async {
