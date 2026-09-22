@@ -94,12 +94,17 @@ class MemoPdf {
   // ---------------------------------------------------------------------------
 
   pw.Widget _infoBlock(MemoDocument doc, pw.Font regular, pw.Font bold) {
-    pw.Widget cell(String text, {bool isBold = false, double size = 8.5, pw.Alignment align = pw.Alignment.centerLeft}) =>
+    pw.Widget cell(String text, {bool isBold = false, double size = 8.5, pw.Alignment align = pw.Alignment.centerLeft, bool dark = false}) =>
         pw.Container(
           height: _infoRowHeight,
           alignment: align,
+          color: dark ? PdfColors.black : null,
           padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-          child: pw.Text(text, style: pw.TextStyle(font: isBold ? bold : regular, fontSize: size), maxLines: 1),
+          child: pw.Text(
+            text,
+            style: pw.TextStyle(font: isBold ? bold : regular, fontSize: size, color: dark ? PdfColors.white : PdfColors.black),
+            maxLines: 1,
+          ),
         );
 
     final row1 = pw.Table(
@@ -113,10 +118,10 @@ class MemoPdf {
       },
       children: [
         pw.TableRow(children: [
-          cell('Memo No.', isBold: true, align: pw.Alignment.center),
+          cell('Memo No.', isBold: true, align: pw.Alignment.center, dark: true),
           cell(doc.memoNumber.toString(), isBold: true, size: 10),
           cell(doc.poNumber, isBold: true, size: 10),
-          cell('Order date:', isBold: true, size: 8),
+          cell('Order date:', isBold: true, size: 8, dark: true),
           cell(doc.orderDate == null ? '' : _date.format(doc.orderDate!), isBold: true, size: 9),
         ]),
       ],
@@ -131,9 +136,9 @@ class MemoPdf {
       },
       children: [
         pw.TableRow(children: [
-          cell('Name/address:', isBold: true, size: 7, align: pw.Alignment.center),
+          cell('Name/address:', isBold: true, size: 7, align: pw.Alignment.center, dark: true),
           cell(doc.outletDisplayName, isBold: true, size: 9),
-          cell('Supply Date:', isBold: true, size: 8),
+          cell('Supply Date:', isBold: true, size: 8, dark: true),
           cell(_date.format(doc.supplyDate), isBold: true, size: 10),
         ]),
       ],
@@ -155,7 +160,7 @@ class MemoPdf {
           height: _tableHeaderHeight,
           alignment: pw.Alignment.center,
           padding: const pw.EdgeInsets.symmetric(horizontal: 1),
-          child: pw.Text(text, style: pw.TextStyle(font: bold, fontSize: 6), textAlign: pw.TextAlign.center, maxLines: 2),
+          child: pw.Text(text, style: pw.TextStyle(font: bold, fontSize: 6, color: PdfColors.white), textAlign: pw.TextAlign.center, maxLines: 2),
         );
     const headers = ['Sl.', 'Product Code', 'Product Name', 'Product Name', 'Size', 'Qty', 'Unit price', 'Amount Tk.'];
 
@@ -187,7 +192,10 @@ class MemoPdf {
     }
 
     final rows = <pw.TableRow>[
-      pw.TableRow(children: [for (var i = 0; i < 2; i++) ...headers.map(headerCell)]),
+      pw.TableRow(
+        decoration: const pw.BoxDecoration(color: PdfColors.black),
+        children: [for (var i = 0; i < 2; i++) ...headers.map(headerCell)],
+      ),
     ];
     for (var i = 0; i < rowsPerColumn; i++) {
       final left = doc.rows[i];
@@ -200,7 +208,7 @@ class MemoPdf {
     }
 
     return pw.Table(
-      border: pw.TableBorder.all(width: 0.5),
+      border: pw.TableBorder.all(width: 0.5, color: PdfColors.grey700),
       columnWidths: widths,
       defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
       children: rows,

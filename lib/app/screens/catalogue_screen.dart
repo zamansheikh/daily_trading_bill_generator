@@ -6,6 +6,7 @@ import '../../domain/models.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/suggestions_dialog.dart';
 
 class CatalogueScreen extends StatefulWidget {
   const CatalogueScreen({super.key});
@@ -28,7 +29,17 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
       appBar: AppBar(
         title: const Text('Product catalogue'),
         actions: [
+          PopupMenuButton<Chain>(
+            tooltip: 'Fill blank prices from the other chain',
+            icon: const Icon(Icons.auto_fix_high),
+            onSelected: (chain) => _fillPrices(context, chain),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: Chain.bestBuy, child: Text('Fill blank Best Buy prices')),
+              PopupMenuItem(value: Chain.dailyShopping, child: Text('Fill blank Daily Shopping prices')),
+            ],
+          ),
           if (!compact) ...[
+            const SizedBox(width: 4),
             FilledButton.icon(onPressed: () => _edit(context, null), icon: const Icon(Icons.add), label: const Text('Add product')),
             const SizedBox(width: 12),
           ],
@@ -154,6 +165,14 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
   Future<void> _edit(BuildContext context, Product? existing) async {
     final state = context.read<AppState>();
     await showDialog<void>(context: context, builder: (_) => _ProductDialog(state: state, product: existing));
+  }
+
+  Future<void> _fillPrices(BuildContext context, Chain chain) async {
+    final state = context.read<AppState>();
+    final chosen = await showSuggestionsDialog(context, title: 'Blank ${chain.label} prices', suggestions: state.blankPriceSuggestions(chain));
+    if (chosen == null || chosen.isEmpty || !context.mounted) return;
+    final n = await state.applySuggestions(chosen);
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Filled $n price(s).')));
   }
 }
 

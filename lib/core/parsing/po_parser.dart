@@ -311,11 +311,21 @@ class PoParser {
       final isItemStart = RegExp(r'^\d{1,4}$').hasMatch(sl) && _code.hasMatch(code);
 
       if (isItemStart) {
-        final qty = _num(col('Qnty'));
-        final rate = _num(col('Rate'));
+        var qty = _num(col('Qnty'));
+        var rate = _num(col('Rate'));
         final discount = _num(col('Discount')) ?? 0;
-        final total = _num(col('Total'));
+        var total = _num(col('Total'));
         final sp = _num(col('Sp'));
+        // Backfill: any one of qty / rate / total follows from the other two.
+        final missing = [if (qty == null) 'qty', if (rate == null) 'rate', if (total == null) 'total'];
+        if (missing.length == 1) {
+          if (qty == null && rate != 0) qty = _round2((total! + discount) / rate!);
+          if (rate == null && qty != 0) rate = _round2((total! + discount) / qty!);
+          total ??= _round2(qty! * rate! - discount);
+          pp.warnings.add('Line $sl ($code): ${missing.single} was missing on the PO and was backfilled from the other columns.');
+        } else if (missing.isNotEmpty) {
+          pp.warnings.add('Line $sl ($code): ${missing.join(', ')} missing on the PO; please check: "$text"');
+        }
         last = PoItem(
           sl: int.parse(sl),
           code: code,
@@ -328,9 +338,6 @@ class PoParser {
           shelfPrice: sp,
         );
         pp.items.add(last);
-        if (qty == null || rate == null || total == null) {
-          pp.warnings.add('Line $sl ($code): numeric columns incomplete: "$text"');
-        }
         continue;
       }
 
@@ -363,6 +370,8 @@ class PoParser {
     final i = s.indexOf(':');
     return (i >= 0 ? s.substring(i + 1) : s.replaceFirst(RegExp(r'^\S+(\s\S+)?'), '')).trim();
   }
+
+  static double _round2(double v) => (v * 100).roundToDouble() / 100;
 
   double? _num(String s) {
     final t = s.replaceAll(',', '').trim();

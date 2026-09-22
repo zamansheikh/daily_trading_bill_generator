@@ -25,6 +25,21 @@ macOS, Linux, Android and iOS.
    `<output folder>/<supply date>/<memo no>(<outlet>).pdf` and recorded in
    History. Prices from the PO update the chain's price list (optional).
 
+### Backfilling missing values
+
+Nothing is ever guessed silently; the app proposes and you apply:
+
+- **Parser**: a PO line missing one of quantity, rate or total gets it computed
+  from the other two and is flagged in the order's warnings.
+- **Order page, "Fill missing"**: lists proposals with a confidence label:
+  the closest catalogue product for an unmatched line (typos included),
+  quantity or rate computed from the other columns or taken from the list
+  price, a default memo name, blank chain prices filled from the other chain
+  and missing Bangla names taken from a sibling size. Tick what you want and
+  press Apply.
+- **Catalogue, magic-wand menu**: fill all blank Best Buy (or Daily Shopping)
+  prices from the other chain's list in one go.
+
 ## Project layout
 
 | Path | What |
@@ -32,6 +47,7 @@ macOS, Linux, Android and iOS.
 | `lib/core/parsing/` | `pdf_words.dart` (positioned word extraction), `po_parser.dart` (PO table parser and verification) |
 | `lib/core/catalog/` | `seed_catalog.dart` (78 products, Bangla names, both price lists, Best Buy aliases), `product_matcher.dart` |
 | `lib/core/memo/` | `memo_builder.dart` (PO + catalogue -> memo rows), `memo_pdf.dart` (page layout) |
+| `lib/core/suggest/suggestions.dart` | Suggestion engine behind "Fill missing" |
 | `lib/data/app_database.dart` | SQLite storage (products, prices, aliases, outlets, orders, memos, settings) |
 | `lib/app/` | State (`AppState`) and screens: Import, History, Catalogue, Settings |
 | `sample_pdf/` | Reference inputs and outputs used by the tests |

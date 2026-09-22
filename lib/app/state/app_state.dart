@@ -10,6 +10,7 @@ import '../../core/catalog/product_matcher.dart';
 import '../../core/memo/memo_builder.dart';
 import '../../core/memo/memo_pdf.dart';
 import '../../core/parsing/po_parser.dart';
+import '../../core/suggest/suggestions.dart';
 import '../../data/app_database.dart';
 import '../../domain/chain.dart';
 import '../../domain/models.dart';
@@ -241,6 +242,60 @@ class AppState extends ChangeNotifier {
     supplyDate = d;
     notifyListeners();
   }
+
+  // ---------------------------------------------------------------------------
+  // Suggestions (backfill of missing values)
+  // ---------------------------------------------------------------------------
+
+  List<Suggestion> suggestionsFor(ImportedOrder o) =>
+      SuggestionEngine(catalog).forOrder(o.po, outletDisplayName: o.outletDisplayName);
+
+  List<Suggestion> blankPriceSuggestions(Chain chain) => SuggestionEngine(catalog).blankPrices(chain);
+
+  /// Applies the selected suggestions. [order] may be null for catalogue-only
+  /// suggestions (prices, Bangla names).
+  Future<int> applySuggestions(List<Suggestion> suggestions, {ImportedOrder? order}) async {
+    var applied = 0;
+    var catalogChanged = false;
+    for (final s in suggestions.where((s) => s.selected)) {
+      switch (s.kind) {
+        case SuggestionKind.productMatch:
+          if (order == null || s.itemIndex == null) continue;
+          final it = order.po.items[s.itemIndex!];
+          it.productId = s.productId;
+          order.matchKinds[s.itemIndex!] = MatchKind.name;
+          await db.saveAlias(order.po.chain, it.code, s.productId!);
+          catalogChanged = true;
+        case SuggestionKind.quantity:
+          if (order == null || s.itemIndex == null) continue;
+          final it = order.po.items[s.itemIndex!];
+          order.po.items[s.itemIndex!] = it.copyWith(quantity: s.numberValue!, total: _money(s.numberValue! * it.rate - it.discount));
+        case SuggestionKind.rate:
+          if (order == null || s.itemIndex == null) continue;
+          final it = order.po.items[s.itemIndex!];
+          order.po.items[s.itemIndex!] = it.copyWith(rate: s.numberValue!, total: _money(it.quantity * s.numberValue! - it.discount));
+        case SuggestionKind.outletName:
+          if (order == null) continue;
+          order.outletDisplayName = s.textValue!;
+          await db.saveOutletDisplayName(order.po.outletName, s.textValue!);
+        case SuggestionKind.price:
+          await db.savePrice(s.chain!, s.productId!, s.numberValue);
+          catalogChanged = true;
+        case SuggestionKind.banglaName:
+          final p = catalog.byId(s.productId);
+          if (p == null) continue;
+          await db.saveProduct(p.copyWith(nameBn: s.textValue));
+          catalogChanged = true;
+      }
+      applied++;
+    }
+    if (order != null) await db.saveOrder(order.po, outletDisplayName: order.outletDisplayName);
+    if (catalogChanged) await _reloadCatalog();
+    notifyListeners();
+    return applied;
+  }
+
+  static double _money(double v) => (v * 100).roundToDouble() / 100;
 
   // ---------------------------------------------------------------------------
   // Memo generation

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../../domain/chain.dart';
 import '../../domain/models.dart';
 import 'catalog.dart';
@@ -32,7 +34,12 @@ class ProductMatcher {
     return matchByName(item.name);
   }
 
-  ProductMatch matchByName(String rawName) {
+  /// Best candidate even when it is below [threshold]; used for suggestions.
+  ProductMatch bestCandidate(String rawName) => _matchByName(rawName, minScore: 0.2);
+
+  ProductMatch matchByName(String rawName) => _matchByName(rawName, minScore: threshold);
+
+  ProductMatch _matchByName(String rawName, {required double minScore}) {
     final size = normalizeSize(extractSize(rawName));
     final tokens = normalizeName(rawName);
     Product? best;
@@ -43,7 +50,10 @@ class ProductMatcher {
       // A PO name without a size ("Yeast Bottle") may match a product of any
       // size, but only when that leaves a single best candidate.
       if (size.isNotEmpty && normalizeSize(p.size) != size) continue;
-      final s = _dice(tokens, normalizeName('${p.nameEn} ${p.size}'));
+      final pTokens = normalizeName('${p.nameEn} ${p.size}');
+      // Token overlap catches word-order and synonym differences; character
+      // bigrams catch typos such as "Cardamon" / "Cardamom".
+      final s = max(_dice(tokens, pTokens), _bigramDice(tokens.join(' '), pTokens.join(' ')));
       if (s > bestScore) {
         bestScore = s;
         best = p;
@@ -52,7 +62,7 @@ class ProductMatcher {
         ties++;
       }
     }
-    if (best != null && bestScore >= threshold && (size.isNotEmpty || ties == 0)) {
+    if (best != null && bestScore >= minScore && (size.isNotEmpty || ties == 0)) {
       return ProductMatch(best, MatchKind.name, bestScore);
     }
     return ProductMatch(null, MatchKind.none, bestScore);
@@ -114,6 +124,11 @@ class ProductMatcher {
     // "Coriander whole" and "Peanut Fried (White)" reduce to their head words,
     // which is what the catalogue also reduces to.
     return out;
+  }
+
+  static double _bigramDice(String a, String b) {
+    Set<String> grams(String s) => {for (var i = 0; i + 1 < s.length; i++) s.substring(i, i + 2)};
+    return _dice(grams(a), grams(b));
   }
 
   static double _dice(Set<String> a, Set<String> b) {

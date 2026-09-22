@@ -269,8 +269,10 @@ class _OrderCard extends StatelessWidget {
       ChainChip(po.chain, dense: compact),
     ]);
     final meta = Text('${po.poNumber}  |  ${po.poDate}  |  ${po.items.length} items', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant));
+    final suggestions = state.suggestionsFor(order).where((s) => s.itemIndex != null || s.kind.name == 'outletName').length;
     final pills = Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
       StatusPill(icon: icon, label: status, color: color),
+      if (suggestions > 0) StatusPill(icon: Icons.auto_fix_high, label: '$suggestions fix(es) suggested', color: Colors.orange.shade800),
       if (order.memoNumber != null) StatusPill(icon: Icons.tag, label: 'Memo ${order.memoNumber}', color: scheme.primary),
       Text('Tk ${money.format(po.computedTotal)}', style: const TextStyle(fontWeight: FontWeight.w600)),
     ]);

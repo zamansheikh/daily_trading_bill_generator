@@ -9,6 +9,7 @@ import '../../domain/models.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/suggestions_dialog.dart';
 
 class PoDetailScreen extends StatelessWidget {
   const PoDetailScreen({super.key, required this.order});
@@ -19,12 +20,18 @@ class PoDetailScreen extends StatelessWidget {
     final state = context.watch<AppState>();
     final po = order.po;
     final compact = context.isCompact;
+    final suggestionCount = state.suggestionsFor(order).length;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(compact ? order.outletDisplayName : '${order.outletDisplayName}  -  ${po.poNumber}', overflow: TextOverflow.ellipsis),
         actions: [
           if (!compact) ...[
+            TextButton.icon(
+              onPressed: () => _fillMissing(context),
+              icon: Icon(Icons.auto_fix_high, color: suggestionCount > 0 ? Colors.orange.shade800 : null),
+              label: Text(suggestionCount > 0 ? 'Fill missing ($suggestionCount)' : 'Fill missing'),
+            ),
             TextButton.icon(onPressed: () => _preview(context), icon: const Icon(Icons.preview), label: const Text('Preview')),
             const SizedBox(width: 4),
             FilledButton.icon(
@@ -33,8 +40,14 @@ class PoDetailScreen extends StatelessWidget {
               label: Text(order.memoNumber == null ? 'Generate memo' : 'Regenerate ${order.memoNumber}'),
             ),
             const SizedBox(width: 12),
-          ] else
+          ] else ...[
+            IconButton(
+              tooltip: 'Fill missing values',
+              icon: Badge.count(count: suggestionCount, isLabelVisible: suggestionCount > 0, child: const Icon(Icons.auto_fix_high)),
+              onPressed: () => _fillMissing(context),
+            ),
             IconButton(tooltip: 'Preview memo', icon: const Icon(Icons.preview), onPressed: () => _preview(context)),
+          ],
         ],
       ),
       floatingActionButton: compact
@@ -71,6 +84,14 @@ class PoDetailScreen extends StatelessWidget {
         if (state.busy) BusyOverlay(message: state.busyMessage),
       ]),
     );
+  }
+
+  Future<void> _fillMissing(BuildContext context) async {
+    final state = context.read<AppState>();
+    final chosen = await showSuggestionsDialog(context, title: 'Fill missing values', suggestions: state.suggestionsFor(order));
+    if (chosen == null || chosen.isEmpty || !context.mounted) return;
+    final n = await state.applySuggestions(chosen, order: order);
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Applied $n value(s).')));
   }
 
   void _preview(BuildContext context) =>
