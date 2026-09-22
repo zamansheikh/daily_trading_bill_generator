@@ -359,6 +359,33 @@ class AppState extends ChangeNotifier {
   /// Path of the Excel twin of a memo PDF ("...pdf" -> "...xlsx").
   static String xlsxPathFor(String pdfPath) => pdfPath.replaceFirst(RegExp(r'\.pdf$', caseSensitive: false), '.xlsx');
 
+  /// Path of the Excel twin of a stored memo, building it first if it is
+  /// missing (memos generated before Excel export existed, or with it off).
+  Future<String?> ensureMemoXlsx(StoredOrder m) async {
+    if (m.memoPath == null || m.memoNumber == null) return null;
+    final path = xlsxPathFor(m.memoPath!);
+    if (File(path).existsSync()) return path;
+    final doc = MemoBuilder(catalog).build(
+      m.po,
+      memoNumber: m.memoNumber!,
+      supplyDate: m.supplyDate ?? supplyDate,
+      outletDisplayName: m.outletDisplayName,
+    );
+    await File(path).writeAsBytes(renderMemoXlsx(doc), flush: true);
+    return path;
+  }
+
+  /// Same for an order in the working list.
+  Future<String?> ensureOrderXlsx(ImportedOrder o) async {
+    if (o.memoPath == null || o.memoNumber == null) return null;
+    final path = xlsxPathFor(o.memoPath!);
+    if (File(path).existsSync()) return path;
+    final doc = buildMemo(o, memoNumber: o.memoNumber);
+    await File(path).writeAsBytes(renderMemoXlsx(doc), flush: true);
+    notifyListeners();
+    return path;
+  }
+
   /// File name in the style of the reference memos: "9808(BBUY Grocery Mogbazar).pdf".
   static String memoFileName(int memoNumber, String outlet) {
     final safe = outlet.replaceAll(RegExp(r'[\\/:*?"<>|]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -450,10 +477,10 @@ class AppState extends ChangeNotifier {
   /// Builds the consolidated order sheet from [columns] (already in the
   /// wanted sequence) and saves it under the supply-date folder. Returns the
   /// file path.
-  Future<String> generateOrderSheet(List<OrderSheetColumn> columns, {required String title}) async {
+  Future<String> generateOrderSheet(List<OrderSheetColumn> columns, {required String title, OrderSheetStyle? style}) async {
     final dir = p.join(outputDir, DateFormat('yyyy-MM-dd').format(supplyDate));
     await Directory(dir).create(recursive: true);
-    final bytes = OrderSheetXlsx(catalog, outletsPerBlock: outletsPerBlock).build(columns, title: title);
+    final bytes = OrderSheetXlsx(catalog, outletsPerBlock: outletsPerBlock).build(columns, title: title, style: style);
     final safe = title.replaceAll(RegExp(r'[\\/:*?"<>|]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     final path = p.join(dir, '$safe.xlsx');
     await File(path).writeAsBytes(bytes, flush: true);

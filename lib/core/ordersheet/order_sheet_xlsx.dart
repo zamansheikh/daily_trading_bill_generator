@@ -12,6 +12,10 @@ class OrderSheetColumn {
   final PurchaseOrder po;
   final String outletDisplayName;
 
+  /// Header text: the label's words separated by spaces so the cell can wrap
+  /// them over several lines ("Chattogram Halishahar Bashundhara").
+  String get headerText => label.replaceAll('-', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+
   /// Short outlet label as on the reference sheet: "BARISHAL-2" -> "Barishal-2",
   /// "COX'S BAZAR (BURMESE MARKET)" -> "Cox's-Bazar-(burmese-Market)".
   String get label {
@@ -21,10 +25,26 @@ class OrderSheetColumn {
     return raw
         .replaceAll(',', ' ')
         .trim()
-        .split(RegExp(r'\s+'))
-        .map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1).toLowerCase())
+        .split(RegExp(r'[\s-]+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
         .join('-');
   }
+}
+
+/// Which of the two reference layouts to produce.
+enum OrderSheetStyle {
+  /// Daily Shopping "Order sheet": PO number row, hidden code/name columns,
+  /// Bangla item, WT text, TP, MRP, outlet blocks with "Sheet N TOTAL",
+  /// grand total, total kg, and every PO's amount along the bottom.
+  dailyShopping,
+
+  /// Best Buy "final quantity sheet": one header row, Bangla item, WT in
+  /// grams, TP, MRP, outlet columns by outlet name, numbered block totals,
+  /// grand total and total kg. No PO or amount rows.
+  bestBuy;
+
+  static OrderSheetStyle forChain(Chain chain) => chain == Chain.bestBuy ? bestBuy : dailyShopping;
 }
 
 /// Alphabetical outlet order, the default when the user has not sorted.
@@ -47,9 +67,10 @@ class OrderSheetXlsx {
 
   /// Columns are written in the order given; sort them first (see
   /// [sortAlphabetically]) or pass the user's own outlet sequence.
-  List<int> build(List<OrderSheetColumn> columns, {required String title}) {
+  List<int> build(List<OrderSheetColumn> columns, {required String title, OrderSheetStyle? style}) {
     final sorted = [...columns];
     final chain = sorted.isEmpty || sorted.first.po.chain == Chain.unknown ? Chain.dailyShopping : sorted.first.po.chain;
+    final bb = (style ?? OrderSheetStyle.forChain(chain)) == OrderSheetStyle.bestBuy;
 
     // Product rows: the chain's catalogue in print order, plus anything
     // ordered that is not in it.
@@ -89,9 +110,14 @@ class OrderSheetXlsx {
     final ws = wb.worksheets[0];
     ws.name = 'Order sheet';
 
-    // Layout: A code, B name, C Bangla, D WT, E TP, F MRP, then outlet blocks
-    // with a total column after each, then Grand Total and Total KG.
-    const firstOutletCol = 7;
+    // Layout. Daily Shopping: A code, B name, C Bangla, D WT, E TP, F MRP.
+    // Best Buy: A Bangla, B WT (grams), C TP, D MRP. Then outlet blocks with
+    // a total column after each, then Grand Total and Total KG.
+    final firstOutletCol = bb ? 5 : 7;
+    final banglaCol = bb ? 1 : 3;
+    final wtCol = banglaCol + 1;
+    final tpCol = banglaCol + 2;
+    final mrpCol = banglaCol + 3;
     final blockCount = sorted.isEmpty ? 0 : ((sorted.length - 1) ~/ outletsPerBlock) + 1;
     final colOf = <OrderSheetColumn, int>{};
     final blockTotalCols = <int>[];
@@ -108,58 +134,86 @@ class OrderSheetXlsx {
     final kgCol = col + 1;
     final lastCol = kgCol;
 
-    const headerRow1 = 1, headerRow2 = 2, firstDataRow = 3;
+    final headerRow1 = 1;
+    final headerRow2 = bb ? 1 : 2;
+    final firstDataRow = headerRow2 + 1;
     final lastDataRow = firstDataRow + rows.length - 1;
     final amountRow = lastDataRow + 1;
 
     // Widths.
-    ws.getRangeByIndex(1, 1).columnWidth = 11;
-    ws.getRangeByIndex(1, 2).columnWidth = 13;
-    ws.getRangeByIndex(1, 3).columnWidth = 13;
-    ws.getRangeByIndex(1, 4).columnWidth = 6.5;
-    ws.getRangeByIndex(1, 5).columnWidth = 7;
-    ws.getRangeByIndex(1, 6).columnWidth = 6.5;
+    if (!bb) {
+      ws.getRangeByIndex(1, 1).columnWidth = 11;
+      ws.getRangeByIndex(1, 2).columnWidth = 13;
+    }
+    ws.getRangeByIndex(1, banglaCol).columnWidth = bb ? 12 : 14;
+    ws.getRangeByIndex(1, wtCol).columnWidth = bb ? 7 : 6.5;
+    ws.getRangeByIndex(1, tpCol).columnWidth = 7;
+    ws.getRangeByIndex(1, mrpCol).columnWidth = 6.5;
     for (var c = firstOutletCol; c <= lastCol; c++) {
-      ws.getRangeByIndex(1, c).columnWidth = blockTotalCols.contains(c) || c >= grandCol ? 7.5 : 6.2;
+      ws.getRangeByIndex(1, c).columnWidth = blockTotalCols.contains(c) || c >= grandCol ? 7.5 : 7.2;
     }
 
     // Header rows.
-    ws.setRowHeightInPixels(headerRow1, 18);
-    ws.setRowHeightInPixels(headerRow2, 96);
-    _head(ws.getRangeByIndex(headerRow1, 1), 'PO Number');
-    _head(ws.getRangeByIndex(headerRow1, 2), title);
-    _head(ws.getRangeByIndex(headerRow2, 1), 'Code');
-    _head(ws.getRangeByIndex(headerRow2, 2), 'Name');
-    _head(ws.getRangeByIndex(headerRow2, 3), 'Item');
-    _head(ws.getRangeByIndex(headerRow2, 4), 'WT');
-    _head(ws.getRangeByIndex(headerRow2, 5), 'TP');
-    _head(ws.getRangeByIndex(headerRow2, 6), 'MRP');
+    // Header text wraps inside the narrow outlet columns (rotated text is not
+    // shown by every spreadsheet app), so the rows are sized for the most
+    // lines any header needs: about 8 characters per line at these widths.
+    int linesFor(String text, int perLine) => text.split(' ').fold(0, (n, w) => n + (w.length / perLine).ceil().clamp(1, 6));
+    final poLines = sorted.fold(1, (m, c) => linesFor(c.po.poNumber.replaceAll('-', '- '), 9) > m ? linesFor(c.po.poNumber.replaceAll('-', '- '), 9) : m);
+    final labelLines = sorted.fold(2, (m, c) {
+      final n = linesFor(bb ? c.outletDisplayName : c.headerText, 8);
+      return n > m ? n : m;
+    });
+    if (!bb) {
+      ws.setRowHeightInPixels(headerRow1, (poLines * 10 + 6).clamp(18, 80).toDouble());
+      _head(ws.getRangeByIndex(headerRow1, 1), 'PO Number');
+      _head(ws.getRangeByIndex(headerRow1, 2), title);
+      _head(ws.getRangeByIndex(headerRow2, 1), 'Code');
+      _head(ws.getRangeByIndex(headerRow2, 2), 'Name');
+    }
+    ws.setRowHeightInPixels(headerRow2, (labelLines * 12 + 8).clamp(40, 120).toDouble());
+    _head(ws.getRangeByIndex(headerRow2, banglaCol), 'Item');
+    _head(ws.getRangeByIndex(headerRow2, wtCol), 'WT');
+    _head(ws.getRangeByIndex(headerRow2, tpCol), 'TP');
+    _head(ws.getRangeByIndex(headerRow2, mrpCol), 'MRP');
     for (final c in sorted) {
       final x = colOf[c]!;
-      _head(ws.getRangeByIndex(headerRow1, x), c.po.poNumber, size: 6, rotate: true);
-      _head(ws.getRangeByIndex(headerRow2, x), c.label, rotate: true);
+      if (!bb) _head(ws.getRangeByIndex(headerRow1, x), c.po.poNumber.replaceAll('-', '- '), size: 6);
+      _head(ws.getRangeByIndex(headerRow2, x), bb ? c.outletDisplayName : c.headerText, size: 7);
     }
     for (var b = 0; b < blockTotalCols.length; b++) {
       final x = blockTotalCols[b];
-      _head(ws.getRangeByIndex(headerRow1, x), '${b * outletsPerBlock + 1}-${((b + 1) * outletsPerBlock).clamp(0, sorted.length)}', fill: _totalFill);
-      _head(ws.getRangeByIndex(headerRow2, x), 'Sheet-${b + 1}-TOTAL', rotate: true, fill: _totalFill);
+      if (!bb) _head(ws.getRangeByIndex(headerRow1, x), '${b * outletsPerBlock + 1}-${((b + 1) * outletsPerBlock).clamp(0, sorted.length)}', fill: _totalFill);
+      _head(ws.getRangeByIndex(headerRow2, x), bb ? 'Total ${b + 1}' : 'Sheet ${b + 1} TOTAL', fill: _totalFill);
     }
-    _head(ws.getRangeByIndex(headerRow1, grandCol), '', fill: _totalFill);
-    _head(ws.getRangeByIndex(headerRow2, grandCol), 'Grand Total', rotate: true, fill: _totalFill);
-    _head(ws.getRangeByIndex(headerRow1, kgCol), '', fill: _totalFill);
-    _head(ws.getRangeByIndex(headerRow2, kgCol), 'Total KG', rotate: true, fill: _totalFill);
+    if (!bb) {
+      _head(ws.getRangeByIndex(headerRow1, grandCol), '', fill: _totalFill);
+      _head(ws.getRangeByIndex(headerRow1, kgCol), '', fill: _totalFill);
+    }
+    _head(ws.getRangeByIndex(headerRow2, grandCol), 'Grand Total', fill: _totalFill);
+    _head(ws.getRangeByIndex(headerRow2, kgCol), 'Total KG', fill: _totalFill);
 
     // Product rows.
     for (var i = 0; i < rows.length; i++) {
       final r = rows[i];
       final y = firstDataRow + i;
-      ws.setRowHeightInPixels(y, 17);
-      _text(ws.getRangeByIndex(y, 1), r.code, size: 7);
-      _text(ws.getRangeByIndex(y, 2), r.name, size: 7);
-      _text(ws.getRangeByIndex(y, 3), r.bangla, size: 8, font: _bangla);
-      _text(ws.getRangeByIndex(y, 4), r.size, size: 7, center: true);
-      _num(ws.getRangeByIndex(y, 5), r.tradePrice, format: '0.00');
-      _num(ws.getRangeByIndex(y, 6), r.mrp, format: '0.##');
+      // Wrapped text does not grow a row of fixed height by itself, so
+      // estimate the lines the Bangla name needs (roughly one character per
+      // width unit) and size the row for them.
+      final lines = (r.bangla.length / 13).ceil().clamp(1, 3);
+      ws.setRowHeightInPixels(y, (17 * lines).toDouble());
+      if (!bb) {
+        _text(ws.getRangeByIndex(y, 1), r.code, size: 7);
+        _text(ws.getRangeByIndex(y, 2), r.name, size: 7, wrap: true);
+      }
+      _text(ws.getRangeByIndex(y, banglaCol), r.bangla, size: 8, font: _bangla, wrap: true);
+      final grams = _grams(r.size);
+      if (bb && grams != null) {
+        _num(ws.getRangeByIndex(y, wtCol), grams, format: '0.##');
+      } else {
+        _text(ws.getRangeByIndex(y, wtCol), r.size, size: 7, center: true);
+      }
+      _num(ws.getRangeByIndex(y, tpCol), r.tradePrice, format: '0.00');
+      _num(ws.getRangeByIndex(y, mrpCol), r.mrp, format: '0.##');
       var grand = 0.0;
       for (var b = 0; b < blockCount; b++) {
         final start = b * outletsPerBlock;
@@ -174,8 +228,12 @@ class OrderSheetXlsx {
         final firstX = _colName(colOf[sorted[start]]!);
         final lastX = _colName(colOf[sorted[end - 1]]!);
         final tcell = ws.getRangeByIndex(y, blockTotalCols[b]);
-        tcell.setFormula('=SUM($firstX$y:$lastX$y)');
-        tcell.setFormulaNumberValue(blockSum);
+        if (blockSum > 0) {
+          tcell.setFormula('=SUM($firstX$y:$lastX$y)');
+          tcell.setFormulaNumberValue(blockSum);
+        } else {
+          tcell.setNumber(0);
+        }
         _style(tcell, size: 8, bold: true, fill: _totalFill, format: '0.##');
         grand += blockSum;
       }
@@ -190,12 +248,17 @@ class OrderSheetXlsx {
       final kg = _kg(r.size);
       final kcell = ws.getRangeByIndex(y, kgCol);
       if (kg != null) {
-        kcell.setFormula('=ROUND(${_colName(grandCol)}$y*$kg,3)');
+        // Best Buy sheet: kg from the numeric grams column, as in the template.
+        kcell.setFormula(bb && grams != null
+            ? '=(${_colName(grandCol)}$y*${_colName(wtCol)}$y)/1000'
+            : '=ROUND(${_colName(grandCol)}$y*$kg,3)');
         kcell.setFormulaNumberValue(_round3(grand * kg));
       }
       _style(kcell, size: 8, fill: _totalFill, format: '0.##');
     }
 
+    final lastRow = bb ? lastDataRow : amountRow;
+    if (!bb) {
     // Amount row: value of each PO = SUMPRODUCT(TP, qty), which equals the PO total.
     _head(ws.getRangeByIndex(amountRow, 3), 'Amount Tk.');
     for (var c = 1; c <= 6; c++) {
@@ -207,8 +270,7 @@ class OrderSheetXlsx {
       final cell = ws.getRangeByIndex(amountRow, x);
       cell.setFormula('=ROUND(SUMPRODUCT(\$E$firstDataRow:\$E$lastDataRow,$xn$firstDataRow:$xn$lastDataRow),2)');
       cell.setFormulaNumberValue(_round2(c.po.computedTotal));
-      _style(cell, size: 7, bold: true, fill: _headFill, format: '#,##0.00');
-      cell.cellStyle.rotation = 90;
+      _style(cell, size: 6, bold: true, fill: _headFill, format: '#,##0.00');
     }
     for (var b = 0; b < blockTotalCols.length; b++) {
       final start = b * outletsPerBlock;
@@ -218,26 +280,25 @@ class OrderSheetXlsx {
       final cell = ws.getRangeByIndex(amountRow, blockTotalCols[b]);
       cell.setFormula('=ROUND(SUM($firstX$amountRow:$lastX$amountRow),2)');
       cell.setFormulaNumberValue(_round2(sorted.sublist(start, end).fold(0.0, (s, c) => s + c.po.computedTotal)));
-      _style(cell, size: 7, bold: true, fill: _totalFill, format: '#,##0.00');
-      cell.cellStyle.rotation = 90;
+      _style(cell, size: 6, bold: true, fill: _totalFill, format: '#,##0.00');
     }
     final gAmount = ws.getRangeByIndex(amountRow, grandCol);
     if (blockTotalCols.isNotEmpty) {
       gAmount.setFormula('=${blockTotalCols.map((x) => '${_colName(x)}$amountRow').join('+')}');
       gAmount.setFormulaNumberValue(_round2(sorted.fold(0.0, (s, c) => s + c.po.computedTotal)));
     }
-    _style(gAmount, size: 7, bold: true, fill: _totalFill, format: '#,##0.00');
-    gAmount.cellStyle.rotation = 90;
-    ws.setRowHeightInPixels(amountRow, 64);
+    _style(gAmount, size: 6, bold: true, fill: _totalFill, format: '#,##0.00');
+    ws.setRowHeightInPixels(amountRow, 22);
+    }
 
     // Borders over the whole grid.
-    final all = ws.getRangeByIndex(headerRow1, 1, amountRow, lastCol);
+    final all = ws.getRangeByIndex(headerRow1, 1, lastRow, lastCol);
     all.cellStyle.borders.all.lineStyle = LineStyle.thin;
     all.cellStyle.borders.all.color = '#808080';
 
     // Code and English name stay in the file but hidden, as on the reference
     // sheet; the printed sheet shows the Bangla item name.
-    ws.getRangeByIndex(1, 1, 1, 2).showColumns(false);
+    if (!bb) ws.getRangeByIndex(1, 1, 1, 2).showColumns(false);
 
     // Freeze the product columns and header rows; repeat them on every page.
     ws.getRangeByIndex(firstDataRow, firstOutletCol).freezePanes();
@@ -252,19 +313,19 @@ class OrderSheetXlsx {
     ps.fitToPagesTall = 1;
     // Repeat the item columns on every printed page (the library derives the
     // column span from a cell range). Rows need no repeat: one page tall.
-    ps.printTitleColumns = 'C1:F1';
+    ps.printTitleColumns = bb ? 'A1:D1' : 'C1:F1';
     ps.leftMargin = 0.25;
     ps.rightMargin = 0.25;
     ps.topMargin = 0.25;
     ps.bottomMargin = 0.25;
-    ps.printArea = 'A1:${_colName(lastCol)}$amountRow';
+    ps.printArea = 'A1:${_colName(lastCol)}$lastRow';
 
     final bytes = wb.saveAsStream();
     wb.dispose();
     return bytes;
   }
 
-  void _head(Range r, String text, {double size = 7.5, bool rotate = false, String fill = _headFill}) {
+  void _head(Range r, String text, {double size = 7.5, String fill = _headFill}) {
     r.setText(text);
     r.cellStyle
       ..fontName = _latin
@@ -273,17 +334,17 @@ class OrderSheetXlsx {
       ..backColor = fill
       ..hAlign = HAlignType.center
       ..vAlign = VAlignType.center
-      ..wrapText = !rotate;
-    if (rotate) r.cellStyle.rotation = 90;
+      ..wrapText = true;
   }
 
-  void _text(Range r, String text, {double size = 8, String font = _latin, bool center = false}) {
+  void _text(Range r, String text, {double size = 8, String font = _latin, bool center = false, bool wrap = false}) {
     r.setText(text);
     r.cellStyle
       ..fontName = font
       ..fontSize = size
       ..hAlign = center ? HAlignType.center : HAlignType.left
-      ..vAlign = VAlignType.center;
+      ..vAlign = VAlignType.center
+      ..wrapText = wrap;
   }
 
   void _num(Range r, double? v, {required String format}) {
@@ -300,6 +361,12 @@ class OrderSheetXlsx {
       ..hAlign = HAlignType.center
       ..vAlign = VAlignType.center;
     if (fill != null) r.cellStyle.backColor = fill;
+  }
+
+  /// Weight of one unit in grams ("100gm" -> 100, "1KG" -> 1000).
+  static double? _grams(String size) {
+    final kg = _kg(size);
+    return kg == null ? null : kg * 1000;
   }
 
   /// Weight of one unit in kg from its size text ("100gm" -> 0.1, "1KG" -> 1).

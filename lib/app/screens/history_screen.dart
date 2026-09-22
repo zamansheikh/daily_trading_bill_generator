@@ -56,7 +56,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 padding: EdgeInsets.fromLTRB(compact ? 0 : 16, 8, compact ? 0 : 16, 24),
                 itemCount: memos.length,
                 separatorBuilder: (_, _) => SizedBox(height: compact ? 0 : 8),
-                itemBuilder: (ctx, i) => _MemoTile(memo: memos[i], compact: compact, onReload: () => _reload(state, memos[i])),
+                itemBuilder: (ctx, i) => _MemoTile(memo: memos[i], compact: compact, state: state, onReload: () => _reload(state, memos[i])),
               ),
       ),
     );
@@ -69,17 +69,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
 }
 
 class _MemoTile extends StatelessWidget {
-  const _MemoTile({required this.memo, required this.compact, required this.onReload});
+  const _MemoTile({required this.memo, required this.compact, required this.onReload, required this.state});
   final StoredOrder memo;
   final bool compact;
   final VoidCallback onReload;
+  final AppState state;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final exists = memo.memoPath != null && File(memo.memoPath!).existsSync();
-    final xlsx = memo.memoPath == null ? null : AppState.xlsxPathFor(memo.memoPath!);
-    final hasXlsx = xlsx != null && File(xlsx).existsSync();
+    final hasXlsx = exists; // built on demand if the twin file is missing
     final tile = ListTile(
       leading: Container(
         width: 52,
@@ -123,7 +123,9 @@ class _MemoTile extends StatelessWidget {
       case 'open':
         OpenFilex.open(memo.memoPath!);
       case 'xlsx':
-        OpenFilex.open(AppState.xlsxPathFor(memo.memoPath!));
+        state.ensureMemoXlsx(memo).then((path) {
+          if (path != null) OpenFilex.open(path);
+        });
       case 'share':
         final x = AppState.xlsxPathFor(memo.memoPath!);
         SharePlus.instance.share(ShareParams(files: [XFile(memo.memoPath!), if (File(x).existsSync()) XFile(x)]));

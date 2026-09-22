@@ -55,6 +55,11 @@ grand total, total kg, and each PO's amount along the bottom as
 `SUMPRODUCT(TP, qty)`. Code and English name columns are hidden; the item
 columns repeat on every printed page.
 
+The same page offers the Best Buy "final quantity sheet" layout (chosen
+automatically when all selected orders are Best Buy): one header row with
+Bangla item, WT in grams, TP, MRP, one column per outlet, numbered block
+totals, grand total and total kg, and no PO or amount rows.
+
 ### Backfilling missing values
 
 Nothing is ever guessed silently; the app proposes and you apply:

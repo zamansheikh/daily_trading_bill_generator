@@ -104,7 +104,7 @@ class SettingsScreen extends StatelessWidget {
             ),
           ]),
           section('About', [
-            const ListTile(leading: Icon(Icons.info_outline), title: Text('Daily Trading Bill Generator'), subtitle: Text('Version 1.2.0')),
+            const ListTile(leading: Icon(Icons.info_outline), title: Text('Daily Trading Bill Generator'), subtitle: Text('Version 1.3.0')),
             const Divider(),
             const _DeveloperCredit(),
           ]),

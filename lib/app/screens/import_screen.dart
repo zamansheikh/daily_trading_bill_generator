@@ -314,14 +314,16 @@ class _OrderCard extends StatelessWidget {
           case 'share':
             SharePlus.instance.share(ShareParams(files: [XFile(order.memoPath!), if (order.xlsxPath != null) XFile(order.xlsxPath!)]));
           case 'xlsx':
-            OpenFilex.open(order.xlsxPath!);
+            state.ensureOrderXlsx(order).then((path) {
+              if (path != null) OpenFilex.open(path);
+            });
           case 'remove':
             state.removeOrder(order);
         }
       },
       itemBuilder: (_) => [
         if (order.memoPath != null) const PopupMenuItem(value: 'open', child: ListTile(leading: Icon(Icons.picture_as_pdf), title: Text('Open memo PDF'), dense: true)),
-        if (order.xlsxPath != null) const PopupMenuItem(value: 'xlsx', child: ListTile(leading: Icon(Icons.table_chart), title: Text('Open memo Excel'), dense: true)),
+        if (order.memoPath != null) const PopupMenuItem(value: 'xlsx', child: ListTile(leading: Icon(Icons.table_chart), title: Text('Open memo Excel'), dense: true)),
         if (order.memoPath != null) const PopupMenuItem(value: 'share', child: ListTile(leading: Icon(Icons.share), title: Text('Share memo files'), dense: true)),
         const PopupMenuItem(value: 'remove', child: ListTile(leading: Icon(Icons.close), title: Text('Remove from list'), dense: true)),
       ],

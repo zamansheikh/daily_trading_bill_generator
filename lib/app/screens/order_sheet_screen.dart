@@ -25,13 +25,16 @@ class _OrderSheetScreenState extends State<OrderSheetScreen> {
   late final TextEditingController _title;
   late final TextEditingController _perBlock;
   bool _busy = false;
+  late OrderSheetStyle _style;
 
   @override
   void initState() {
     super.initState();
     final state = context.read<AppState>();
     _columns = state.orderSheetColumns(widget.orders);
-    _title = TextEditingController(text: 'Order sheet ${DateFormat('dd-MMM-yyyy').format(state.supplyDate)}');
+    final chains = widget.orders.map((o) => o.po.chain).toSet();
+    _style = chains.length == 1 ? OrderSheetStyle.forChain(chains.single) : OrderSheetStyle.dailyShopping;
+    _title = TextEditingController(text: '${_style == OrderSheetStyle.bestBuy ? 'Final quantity sheet' : 'Order sheet'} ${DateFormat('dd-MMM-yyyy').format(state.supplyDate)}');
     _perBlock = TextEditingController(text: '${state.outletsPerBlock}');
   }
 
@@ -52,7 +55,7 @@ class _OrderSheetScreenState extends State<OrderSheetScreen> {
     try {
       await state.setOutletsPerBlock(_blockSize);
       await state.saveOutletOrder(_columns.map((c) => c.label).toList());
-      final path = await state.generateOrderSheet(_columns, title: title);
+      final path = await state.generateOrderSheet(_columns, title: title, style: _style);
       if (!mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -115,6 +118,16 @@ class _OrderSheetScreenState extends State<OrderSheetScreen> {
                     ),
                   ),
                 ]),
+                const SizedBox(height: 10),
+                SegmentedButton<OrderSheetStyle>(
+                  segments: const [
+                    ButtonSegment(value: OrderSheetStyle.dailyShopping, icon: Icon(Icons.grid_on, size: 16), label: Text('Daily Shopping order sheet')),
+                    ButtonSegment(value: OrderSheetStyle.bestBuy, icon: Icon(Icons.table_rows, size: 16), label: Text('Best Buy quantity sheet')),
+                  ],
+                  selected: {_style},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (v) => setState(() => _style = v.first),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   'Drag the handles to put the ${_columns.length} outlets in your sequence. Every $blockSize outlets form one block with its own total column ($blocks block(s)). The order is remembered for next time.',
