@@ -71,13 +71,15 @@ class MemoPdf {
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            // The letterhead spans the full content width, like the Excel memo.
+            // The letterhead is centred at its own proportions and spans the
+            // content width, like the Excel memo.
             pw.Container(
               height: _bannerHeight,
               width: _contentWidth,
               decoration: const pw.BoxDecoration(border: pw.Border(top: _border, left: _border, right: _border)),
-              padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 3),
-              child: pw.Image(banner, fit: pw.BoxFit.fill, width: _contentWidth - 4, height: _bannerHeight - 6),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              alignment: pw.Alignment.center,
+              child: pw.Image(banner, fit: pw.BoxFit.contain),
             ),
             _infoBlock(doc, regular, bold),
             _table(doc, rowsPerColumn, rowHeight, fontSize, regular, bold),
