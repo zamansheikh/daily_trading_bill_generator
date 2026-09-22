@@ -71,10 +71,12 @@ On a Windows PC:
 2. Open `installer/daily_trading_bill_generator.iss` in Inno Setup 6 and
    click Compile. The setup exe lands in `installer/output/`.
 
-Or let GitHub build it: push the repository to GitHub and run the
-"Windows installer" workflow (`.github/workflows/windows-installer.yml`) from
-the Actions tab, or push a tag such as `v1.0.0`. The setup exe is attached as
-an artifact, and to the release for tags.
+Or let GitHub build it: the "Release builds" workflow
+(`.github/workflows/windows-installer.yml`) runs on every push to `main`, on
+tags such as `v1.0.0`, and by hand from the Actions tab. It builds the Windows
+setup exe and the Android APK and publishes both on a GitHub release: the tag
+name for tag pushes, otherwise `v<version from pubspec.yaml>` as a pre-release
+that is updated in place.
 
 The installer uses the app icon, closes a running copy before upgrading and
 offers a desktop shortcut.

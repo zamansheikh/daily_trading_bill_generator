@@ -1,44 +1,96 @@
-# Builds the Windows release and the Inno Setup installer on a Windows runner.
-# Trigger: push a tag like v1.0.0, or run it by hand from the Actions tab.
-# The installer is attached as a workflow artifact (and to the release for tags).
-name: Windows installer
+# Builds the Windows installer and the Android APK and publishes them as a
+# GitHub release.
+#  - push a tag like v1.0.0  -> release "v1.0.0"
+#  - push to main / run by hand -> release "v<version from pubspec.yaml>",
+#    updated in place on every run
+name: Release builds
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            v=$(grep -E '^version:' pubspec.yaml | sed -E 's/version:[[:space:]]*//; s/\+.*//')
+            echo "tag=v$v" >> "$GITHUB_OUTPUT"
+          fi
+
   windows:
+    needs: version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-
       - name: Build Windows release
         run: |
           flutter pub get
           flutter build windows --release
-
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
-
       - name: Compile installer
         run: |
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\daily_trading_bill_generator.iss
           Get-ChildItem installer\output
-
       - uses: actions/upload-artifact@v4
         with:
-          name: DailyTradingBillGenerator-windows-setup
+          name: windows-installer
           path: installer/output/*.exe
 
-      - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/v')
+  android:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Build APK
+        run: |
+          flutter pub get
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk DailyTradingBillGenerator-${{ needs.version.outputs.tag }}.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: DailyTradingBillGenerator-*.apk
+
+  release:
+    needs: [version, windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Publish release ${{ needs.version.outputs.tag }}
         uses: softprops/action-gh-release@v2
         with:
-          files: installer/output/*.exe
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: Daily Trading Bill Generator ${{ needs.version.outputs.tag }}
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          files: |
+            dist/windows-installer/*.exe
+            dist/android-apk/*.apk
