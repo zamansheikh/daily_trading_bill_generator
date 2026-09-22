@@ -132,6 +132,8 @@ class PoDetailScreen extends StatelessWidget {
               child: Wrap(spacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
                 StatusPill(icon: Icons.tag, label: 'Memo ${order.memoNumber}', color: Theme.of(context).colorScheme.primary),
                 TextButton.icon(onPressed: () => OpenFilex.open(order.memoPath!), icon: const Icon(Icons.picture_as_pdf, size: 18), label: const Text('Open PDF')),
+                if (order.xlsxPath != null)
+                  TextButton.icon(onPressed: () => OpenFilex.open(order.xlsxPath!), icon: const Icon(Icons.table_chart, size: 18), label: const Text('Open Excel')),
                 TextButton.icon(
                   onPressed: () => SharePlus.instance.share(ShareParams(files: [XFile(order.memoPath!)])),
                   icon: const Icon(Icons.share, size: 18),

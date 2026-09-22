@@ -67,7 +67,12 @@ class _ImportScreenState extends State<ImportScreen> {
     if (!ok) return;
     final result = await state.generateMemos(targets);
     if (!mounted) return;
-    final files = result.generated.map((o) => o.memoPath).whereType<String>().toList();
+    final files = [
+      for (final o in result.generated) ...[
+        if (o.memoPath != null) o.memoPath!,
+        if (o.xlsxPath != null) o.xlsxPath!,
+      ],
+    ];
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -88,7 +93,7 @@ class _ImportScreenState extends State<ImportScreen> {
                 SharePlus.instance.share(ShareParams(files: files.map(XFile.new).toList(), title: 'Daily Trading memos'));
               },
               icon: const Icon(Icons.share),
-              label: const Text('Share PDFs'),
+              label: const Text('Share files'),
             )
           else
             FilledButton.icon(
@@ -285,14 +290,17 @@ class _OrderCard extends StatelessWidget {
           case 'open':
             OpenFilex.open(order.memoPath!);
           case 'share':
-            SharePlus.instance.share(ShareParams(files: [XFile(order.memoPath!)]));
+            SharePlus.instance.share(ShareParams(files: [XFile(order.memoPath!), if (order.xlsxPath != null) XFile(order.xlsxPath!)]));
+          case 'xlsx':
+            OpenFilex.open(order.xlsxPath!);
           case 'remove':
             state.removeOrder(order);
         }
       },
       itemBuilder: (_) => [
         if (order.memoPath != null) const PopupMenuItem(value: 'open', child: ListTile(leading: Icon(Icons.picture_as_pdf), title: Text('Open memo PDF'), dense: true)),
-        if (order.memoPath != null) const PopupMenuItem(value: 'share', child: ListTile(leading: Icon(Icons.share), title: Text('Share memo PDF'), dense: true)),
+        if (order.xlsxPath != null) const PopupMenuItem(value: 'xlsx', child: ListTile(leading: Icon(Icons.table_chart), title: Text('Open memo Excel'), dense: true)),
+        if (order.memoPath != null) const PopupMenuItem(value: 'share', child: ListTile(leading: Icon(Icons.share), title: Text('Share memo files'), dense: true)),
         const PopupMenuItem(value: 'remove', child: ListTile(leading: Icon(Icons.close), title: Text('Remove from list'), dense: true)),
       ],
     );

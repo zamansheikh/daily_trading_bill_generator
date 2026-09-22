@@ -55,6 +55,14 @@ class SettingsScreen extends StatelessWidget {
             ],
             const Divider(),
             SwitchListTile(
+              secondary: const Icon(Icons.table_chart_outlined),
+              title: const Text('Also export Excel (.xlsx)'),
+              subtitle: const Text('Writes an editable Excel copy of every memo next to the PDF, with the same layout and live totals.'),
+              value: state.exportXlsx,
+              onChanged: state.setExportXlsx,
+            ),
+            const Divider(),
+            SwitchListTile(
               secondary: const Icon(Icons.trending_up),
               title: const Text('Learn prices from purchase orders'),
               subtitle: const Text('When a memo is generated, the rate on the PO becomes the chain\'s list price for that product.'),

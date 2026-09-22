@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../data/app_database.dart';
+import '../state/app_state.dart' show AppState;
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -77,6 +78,8 @@ class _MemoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final exists = memo.memoPath != null && File(memo.memoPath!).existsSync();
+    final xlsx = memo.memoPath == null ? null : AppState.xlsxPathFor(memo.memoPath!);
+    final hasXlsx = xlsx != null && File(xlsx).existsSync();
     final tile = ListTile(
       leading: Container(
         width: 52,
@@ -99,12 +102,14 @@ class _MemoTile extends StatelessWidget {
               onSelected: (v) => _action(v),
               itemBuilder: (_) => [
                 PopupMenuItem(value: 'open', enabled: exists, child: const ListTile(leading: Icon(Icons.picture_as_pdf), title: Text('Open PDF'), dense: true)),
+                PopupMenuItem(value: 'xlsx', enabled: hasXlsx, child: const ListTile(leading: Icon(Icons.table_chart), title: Text('Open Excel'), dense: true)),
                 PopupMenuItem(value: 'share', enabled: exists, child: const ListTile(leading: Icon(Icons.share), title: Text('Share'), dense: true)),
                 const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_document), title: Text('Edit / regenerate'), dense: true)),
               ],
             )
           : Row(mainAxisSize: MainAxisSize.min, children: [
               IconButton(tooltip: 'Open PDF', icon: const Icon(Icons.picture_as_pdf), onPressed: exists ? () => _action('open') : null),
+              IconButton(tooltip: 'Open Excel', icon: const Icon(Icons.table_chart), onPressed: hasXlsx ? () => _action('xlsx') : null),
               IconButton(tooltip: 'Share', icon: const Icon(Icons.share), onPressed: exists ? () => _action('share') : null),
               IconButton(tooltip: 'Load into Import list to edit or regenerate', icon: const Icon(Icons.edit_document), onPressed: () => _action('edit')),
             ]),
@@ -117,8 +122,11 @@ class _MemoTile extends StatelessWidget {
     switch (v) {
       case 'open':
         OpenFilex.open(memo.memoPath!);
+      case 'xlsx':
+        OpenFilex.open(AppState.xlsxPathFor(memo.memoPath!));
       case 'share':
-        SharePlus.instance.share(ShareParams(files: [XFile(memo.memoPath!)]));
+        final x = AppState.xlsxPathFor(memo.memoPath!);
+        SharePlus.instance.share(ShareParams(files: [XFile(memo.memoPath!), if (File(x).existsSync()) XFile(x)]));
       case 'edit':
         onReload();
     }

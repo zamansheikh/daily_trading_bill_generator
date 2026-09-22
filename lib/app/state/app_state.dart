@@ -9,6 +9,7 @@ import '../../core/catalog/catalog.dart';
 import '../../core/catalog/product_matcher.dart';
 import '../../core/memo/memo_builder.dart';
 import '../../core/memo/memo_pdf.dart';
+import '../../core/memo/memo_xlsx.dart';
 import '../../core/parsing/po_parser.dart';
 import '../../core/suggest/suggestions.dart';
 import '../../data/app_database.dart';
@@ -27,6 +28,13 @@ class ImportedOrder {
   int? memoNumber;
   String? memoPath;
   bool selected = true;
+
+  /// Excel twin of [memoPath] when it exists on disk.
+  String? get xlsxPath {
+    if (memoPath == null) return null;
+    final x = AppState.xlsxPathFor(memoPath!);
+    return File(x).existsSync() ? x : null;
+  }
 
   bool get hasUnmatched => matchKinds.contains(MatchKind.none);
   bool get hasWarnings => po.warnings.isNotEmpty;
@@ -65,6 +73,9 @@ class AppState extends ChangeNotifier {
   int nextMemoNumber = 1;
   String outputDir = '';
   bool learnPrices = true;
+
+  /// Also write an Excel workbook next to each memo PDF.
+  bool exportXlsx = true;
   DateTime supplyDate = DateTime.now();
   bool busy = false;
   String busyMessage = '';
@@ -73,6 +84,7 @@ class AppState extends ChangeNotifier {
     await _reloadCatalog();
     nextMemoNumber = int.tryParse(await db.getSetting('next_memo_number') ?? '1') ?? 1;
     learnPrices = (await db.getSetting('learn_prices') ?? '1') == '1';
+    exportXlsx = (await db.getSetting('export_xlsx') ?? '1') == '1';
     outputDir = await db.getSetting('output_dir') ?? await _defaultOutputDir();
     await refreshHistory();
     notifyListeners();
@@ -310,6 +322,11 @@ class AppState extends ChangeNotifier {
 
   Future<Uint8List> renderMemo(MemoDocument doc) => MemoPdf(bannerImage: bannerBytes).render(doc);
 
+  List<int> renderMemoXlsx(MemoDocument doc) => MemoXlsx(bannerImage: bannerBytes).build(doc);
+
+  /// Path of the Excel twin of a memo PDF ("...pdf" -> "...xlsx").
+  static String xlsxPathFor(String pdfPath) => pdfPath.replaceFirst(RegExp(r'\.pdf$', caseSensitive: false), '.xlsx');
+
   /// File name in the style of the reference memos: "9808(BBUY Grocery Mogbazar).pdf".
   static String memoFileName(int memoNumber, String outlet) {
     final safe = outlet.replaceAll(RegExp(r'[\\/:*?"<>|]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -330,6 +347,9 @@ class AppState extends ChangeNotifier {
           final bytes = await renderMemo(doc);
           final path = p.join(dir, memoFileName(memoNumber, o.outletDisplayName));
           await File(path).writeAsBytes(bytes, flush: true);
+          if (exportXlsx) {
+            await File(xlsxPathFor(path)).writeAsBytes(renderMemoXlsx(doc), flush: true);
+          }
           o.memoNumber = memoNumber;
           o.memoPath = path;
           await db.saveMemoResult(
@@ -379,6 +399,12 @@ class AppState extends ChangeNotifier {
   Future<void> setOutputDir(String dir) async {
     outputDir = dir;
     await db.setSetting('output_dir', dir);
+    notifyListeners();
+  }
+
+  Future<void> setExportXlsx(bool v) async {
+    exportXlsx = v;
+    await db.setSetting('export_xlsx', v ? '1' : '0');
     notifyListeners();
   }
 

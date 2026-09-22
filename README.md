@@ -25,6 +25,17 @@ macOS, Linux, Android and iOS.
    `<output folder>/<supply date>/<memo no>(<outlet>).pdf` and recorded in
    History. Prices from the PO update the chain's price list (optional).
 
+### Excel export
+
+With "Also export Excel (.xlsx)" on in Settings (the default), every memo is
+also written as `<memo no>(<outlet>).xlsx` next to the PDF, built by
+`lib/core/memo/memo_xlsx.dart`. The workbook has the same layout (letterhead,
+black label cells, two side-by-side tables, Bangla names, Bengali serials),
+prints on one Letter page, and uses live formulas: each amount is
+`qty x unit price` and the total sums both amount columns, so a quantity can
+be corrected in Excel and the sheet recalculates. Bangla cells use the
+Nirmala UI font, which ships with Windows.
+
 ### Backfilling missing values
 
 Nothing is ever guessed silently; the app proposes and you apply:
@@ -46,7 +57,7 @@ Nothing is ever guessed silently; the app proposes and you apply:
 | --- | --- |
 | `lib/core/parsing/` | `pdf_words.dart` (positioned word extraction), `po_parser.dart` (PO table parser and verification) |
 | `lib/core/catalog/` | `seed_catalog.dart` (78 products, Bangla names, both price lists, Best Buy aliases), `product_matcher.dart` |
-| `lib/core/memo/` | `memo_builder.dart` (PO + catalogue -> memo rows), `memo_pdf.dart` (page layout) |
+| `lib/core/memo/` | `memo_builder.dart` (PO + catalogue -> memo rows), `memo_pdf.dart` (PDF layout), `memo_xlsx.dart` (Excel layout) |
 | `lib/core/suggest/suggestions.dart` | Suggestion engine behind "Fill missing" |
 | `lib/data/app_database.dart` | SQLite storage (products, prices, aliases, outlets, orders, memos, settings) |
 | `lib/app/` | State (`AppState`) and screens: Import, History, Catalogue, Settings |
