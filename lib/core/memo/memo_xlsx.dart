@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:image/image.dart' as img;
+
 import 'package:syncfusion_flutter_xlsio/xlsio.dart';
 
 import 'bengali.dart';
@@ -19,8 +21,32 @@ class MemoXlsx {
   static const _white = '#FFFFFF';
   static const _grey = '#EDEDED';
 
-  /// Width / height of assets/images/memo_banner.png (2022 x 140).
-  static const double _bannerAspect = 2022 / 140;
+  /// White margin added around the banner inside the workbook, as a fraction
+  /// of its width (sides) and height (top/bottom). The source image is
+  /// cropped tight, so without this the logos touch the cell borders.
+  static const double _padX = 0.018;
+  static const double _padY = 0.12;
+
+  static final Map<int, (Uint8List, double)> _paddedCache = {};
+
+  /// The banner with a white margin baked in, and its width/height ratio.
+  static (Uint8List, double) _paddedBanner(Uint8List src) {
+    final key = Object.hash(src.length, src.isEmpty ? 0 : src[src.length ~/ 2], src.isEmpty ? 0 : src.last);
+    return _paddedCache.putIfAbsent(key, () {
+      final decoded = img.decodeImage(src);
+      if (decoded == null) return (src, 2022 / 140);
+      final padX = (decoded.width * _padX).round();
+      final padY = (decoded.height * _padY).round();
+      final padded = img.copyExpandCanvas(
+        decoded,
+        newWidth: decoded.width + 2 * padX,
+        newHeight: decoded.height + 2 * padY,
+        position: img.ExpandCanvasPosition.center,
+        backgroundColor: img.ColorRgb8(255, 255, 255),
+      );
+      return (Uint8List.fromList(img.encodePng(padded)), padded.width / padded.height);
+    });
+  }
   // The user's own Excel memo template uses Kalpurush throughout.
   static const _latin = 'Kalpurush';
   static const _bangla = 'Kalpurush';
@@ -46,14 +72,15 @@ class MemoXlsx {
     // w x 7 + 5 px) and the five rows add up to exactly its height, so it
     // fills the merged block edge to edge.
     ws.getRangeByName('A1:P5').merge();
+    final (bannerBytes, bannerAspect) = _paddedBanner(bannerImage);
     final totalWidthPx = _half.fold(0.0, (s, w) => s + w * 7 + 5) * 2;
     final bannerWidth = totalWidthPx.floor() - 2;
-    final bannerHeight = (bannerWidth / _bannerAspect).round();
+    final bannerHeight = (bannerWidth / bannerAspect).round();
     final bannerRowPx = (bannerHeight / 5).floor();
     for (var r = 1; r <= 5; r++) {
       ws.setRowHeightInPixels(r, (r == 5 ? bannerHeight - bannerRowPx * 4 : bannerRowPx).toDouble());
     }
-    final pic = ws.pictures.addStream(1, 1, bannerImage);
+    final pic = ws.pictures.addStream(1, 1, bannerBytes);
     pic.width = bannerWidth;
     pic.height = bannerHeight;
     _box(ws.getRangeByName('A1:P5'));
