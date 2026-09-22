@@ -1,6 +1,8 @@
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:open_filex/open_filex.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -107,6 +109,29 @@ class _ImportScreenState extends State<ImportScreen> {
         ],
       ),
     );
+  }
+
+  /// Consolidated order sheet (products x outlets) for the selected orders.
+  Future<void> _orderSheet() async {
+    final state = context.read<AppState>();
+    final targets = state.orders.where((o) => o.selected).toList();
+    if (targets.isEmpty) return;
+    final title = await promptText(
+      context,
+      title: 'Order sheet name',
+      initial: 'Order sheet ${DateFormat('dd-MMM-yyyy').format(state.supplyDate)}',
+      hint: 'e.g. Order sheet SEP-2 (DLCL)',
+    );
+    if (title == null || title.trim().isEmpty || !mounted) return;
+    final path = await state.generateOrderSheet(targets, title: title.trim());
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Order sheet saved: ${p.basename(path)} (${targets.length} POs)'),
+      action: SnackBarAction(
+        label: isMobile ? 'Share' : 'Open',
+        onPressed: () => isMobile ? SharePlus.instance.share(ShareParams(files: [XFile(path)])) : OpenFilex.open(path),
+      ),
+    ));
   }
 
   Future<void> _pickSupplyDate() async {
@@ -231,11 +256,23 @@ class _ImportScreenState extends State<ImportScreen> {
               onChanged: (v) => state.selectAll(v ?? false),
             ),
             Expanded(child: Text('$selected of ${orders.length} selected', style: Theme.of(context).textTheme.bodyMedium)),
-            if (!compact)
+            if (!compact) ...[
+              OutlinedButton.icon(
+                onPressed: selected == 0 || state.busy ? null : _orderSheet,
+                icon: const Icon(Icons.grid_on),
+                label: const Text('Order sheet'),
+              ),
+              const SizedBox(width: 8),
               FilledButton.tonalIcon(
                 onPressed: selected == 0 || state.busy ? null : _generate,
                 icon: const Icon(Icons.picture_as_pdf),
                 label: Text('Generate $selected memo(s)'),
+              ),
+            ] else
+              IconButton(
+                tooltip: 'Order sheet for selected',
+                icon: const Icon(Icons.grid_on),
+                onPressed: selected == 0 || state.busy ? null : _orderSheet,
               ),
           ]),
         ],
@@ -279,6 +316,7 @@ class _OrderCard extends StatelessWidget {
     final pills = Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
       StatusPill(icon: icon, label: status, color: color),
       if (suggestions > 0) StatusPill(icon: Icons.auto_fix_high, label: '$suggestions fix(es) suggested', color: Colors.orange.shade800),
+      if (po.removedItems.isNotEmpty) StatusPill(icon: Icons.remove_shopping_cart_outlined, label: '${po.removedItems.length} line(s) removed', color: scheme.onSurfaceVariant),
       if (order.memoNumber != null) StatusPill(icon: Icons.tag, label: 'Memo ${order.memoNumber}', color: scheme.primary),
       Text('Tk ${money.format(po.computedTotal)}', style: const TextStyle(fontWeight: FontWeight.w600)),
     ]);

@@ -69,7 +69,12 @@ class PoDetailScreen extends StatelessWidget {
               child: Row(children: [
                 Text('Items', style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
-                Text('Tk ${money.format(po.computedTotal)}', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  po.removedItems.isEmpty
+                      ? 'Tk ${money.format(po.computedTotal)}'
+                      : 'Tk ${money.format(po.computedTotal)}  (PO ${money.format(po.declaredTotal ?? po.computedTotal + po.removedTotal)} minus removed)',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
               ]),
             ),
             if (order.hasUnmatched)
@@ -79,6 +84,7 @@ class PoDetailScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.error)),
               ),
             if (compact) ..._itemCards(context, state) else _itemsTable(context, state),
+            if (po.removedItems.isNotEmpty) ...[const SizedBox(height: 12), _removedPanel(context, state)],
           ]),
         ),
         if (state.busy) BusyOverlay(message: state.busyMessage),
@@ -182,6 +188,7 @@ class PoDetailScreen extends StatelessWidget {
                 DataColumn(label: Text('Qty'), numeric: true),
                 DataColumn(label: Text('Rate'), numeric: true),
                 DataColumn(label: Text('Total'), numeric: true),
+                DataColumn(label: Text('')),
               ],
               rows: [for (var i = 0; i < po.items.length; i++) _itemRow(ctx, state, i, po.items[i], products)],
             ),
@@ -208,7 +215,48 @@ class PoDetailScreen extends StatelessWidget {
         DataCell(Text(_qty(it.quantity)), onTap: () => _editQty(context, state, i, it)),
         DataCell(Text(money.format(it.rate)), onTap: () => _editRate(context, state, i, it)),
         DataCell(Text(money.format(it.total))),
+        DataCell(IconButton(
+          tooltip: 'Remove from memo (e.g. out of stock)',
+          icon: const Icon(Icons.delete_outline, size: 18),
+          onPressed: () => _removeItem(context, state, i, it),
+        )),
       ],
+    );
+  }
+
+  Future<void> _removeItem(BuildContext context, AppState state, int i, PoItem it) async {
+    final ok = await confirm(
+      context,
+      title: 'Remove "${it.cleanName}"?',
+      message: 'Line ${it.sl} (qty ${_qty(it.quantity)}, Tk ${money.format(it.total)}) will be left off the memo. You can restore it from the "Removed lines" panel.',
+      action: 'Remove',
+      destructive: true,
+    );
+    if (ok) await state.removeItem(order, i);
+  }
+
+  Widget _removedPanel(BuildContext context, AppState state) {
+    final po = order.po;
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(Icons.remove_shopping_cart_outlined, size: 18, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Text('Removed lines (not on the memo): ${po.removedItems.length}, Tk ${money.format(po.removedTotal)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+          ]),
+          for (final it in po.removedItems)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text('${it.sl}. ${it.cleanName}', style: TextStyle(decoration: TextDecoration.lineThrough, color: scheme.onSurfaceVariant)),
+              subtitle: Text('${it.code}  |  qty ${_qty(it.quantity)}  |  rate ${money.format(it.rate)}  |  Tk ${money.format(it.total)}'),
+              trailing: TextButton.icon(onPressed: () => state.restoreItem(order, it), icon: const Icon(Icons.undo, size: 16), label: const Text('Restore')),
+            ),
+        ]),
+      ),
     );
   }
 
@@ -235,6 +283,12 @@ class PoDetailScreen extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(child: Text(po.items[i].cleanName, style: const TextStyle(fontWeight: FontWeight.w600))),
                   Text(po.items[i].code, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  IconButton(
+                    tooltip: 'Remove from memo',
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _removeItem(context, state, i, po.items[i]),
+                  ),
                 ]),
                 const SizedBox(height: 6),
                 _productDropdown(state, i, po.items[i], products),

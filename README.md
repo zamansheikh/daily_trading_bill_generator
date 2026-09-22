@@ -36,6 +36,23 @@ prints on one Letter page, and uses live formulas: each amount is
 be corrected in Excel and the sheet recalculates. Bangla cells use the
 Nirmala UI font, which ships with Windows.
 
+### Removing a line from a memo
+
+On an order's page each line has a delete icon (out of stock, not supplied).
+The line leaves the memo but is kept under "Removed lines", where it can be
+restored, and the order still reconciles against the PO's printed total.
+
+### Order sheet
+
+"Order sheet" on the Import screen builds the consolidated
+products-by-outlets workbook for the selected orders
+(`lib/core/ordersheet/order_sheet_xlsx.dart`), in the layout of the
+reference sheet: one column per PO with the outlet name and PO number,
+quantities in the grid, a `Sheet-N-TOTAL` column after every 11 outlets, a
+grand total, total kg, and each PO's amount along the bottom as
+`SUMPRODUCT(TP, qty)`. Code and English name columns are hidden; the item
+columns repeat on every printed page.
+
 ### Backfilling missing values
 
 Nothing is ever guessed silently; the app proposes and you apply:

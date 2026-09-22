@@ -10,6 +10,7 @@ import '../../core/catalog/product_matcher.dart';
 import '../../core/memo/memo_builder.dart';
 import '../../core/memo/memo_pdf.dart';
 import '../../core/memo/memo_xlsx.dart';
+import '../../core/ordersheet/order_sheet_xlsx.dart';
 import '../../core/parsing/po_parser.dart';
 import '../../core/suggest/suggestions.dart';
 import '../../data/app_database.dart';
@@ -234,6 +235,25 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Drops a line from the memo (kept under the order's removed items so it
+  /// can be restored and so totals still reconcile with the PO).
+  Future<void> removeItem(ImportedOrder o, int index) async {
+    o.po.removeItemAt(index);
+    o.matchKinds.removeAt(index);
+    await db.saveOrder(o.po, outletDisplayName: o.outletDisplayName);
+    notifyListeners();
+  }
+
+  Future<void> restoreItem(ImportedOrder o, PoItem it) async {
+    o.po.restoreItem(it);
+    final idx = o.po.items.indexOf(it);
+    final m = matcher.match(o.po.chain, it);
+    it.productId ??= m.product?.id;
+    o.matchKinds.insert(idx, it.productId == null ? MatchKind.none : m.kind);
+    await db.saveOrder(o.po, outletDisplayName: o.outletDisplayName);
+    notifyListeners();
+  }
+
   Future<void> setItemQuantity(ImportedOrder o, int index, double qty) async {
     final it = o.po.items[index];
     final updated = it.copyWith(quantity: qty, total: double.parse((qty * it.rate - it.discount).toStringAsFixed(2)));
@@ -384,6 +404,23 @@ class AppState extends ChangeNotifier {
         await db.savePrice(chain, it.productId!, it.rate);
       }
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Order sheet
+  // ---------------------------------------------------------------------------
+
+  /// Builds the consolidated order sheet for [targets] and saves it under the
+  /// supply-date folder. Returns the file path.
+  Future<String> generateOrderSheet(List<ImportedOrder> targets, {required String title}) async {
+    final dir = p.join(outputDir, DateFormat('yyyy-MM-dd').format(supplyDate));
+    await Directory(dir).create(recursive: true);
+    final columns = [for (final o in targets) OrderSheetColumn(po: o.po, outletDisplayName: o.outletDisplayName)];
+    final bytes = OrderSheetXlsx(catalog).build(columns, title: title);
+    final safe = title.replaceAll(RegExp(r'[\\/:*?"<>|]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final path = p.join(dir, '$safe.xlsx');
+    await File(path).writeAsBytes(bytes, flush: true);
+    return path;
   }
 
   // ---------------------------------------------------------------------------

@@ -104,7 +104,9 @@ class PurchaseOrder {
     required this.sourceFile,
     required this.pages,
     List<String>? warnings,
-  }) : warnings = warnings ?? [];
+    List<PoItem>? removedItems,
+  })  : warnings = warnings ?? [],
+        removedItems = removedItems ?? [];
 
   final String poNumber;
   final Chain chain;
@@ -130,10 +132,33 @@ class PurchaseOrder {
   final List<int> pages;
   final List<String> warnings;
 
+  /// Lines the user removed from the memo (e.g. out of stock). They are kept
+  /// so the parse can still be reconciled against the PO's printed total and
+  /// so a removal can be undone.
+  final List<PoItem> removedItems;
+
   double get computedTotal => items.fold(0.0, (s, i) => s + i.total);
 
+  double get removedTotal => removedItems.fold(0.0, (s, i) => s + i.total);
+
+  /// True when the lines (including any the user removed) add up to the
+  /// total printed on the PO.
   bool get totalsMatch =>
-      declaredTotal != null && (declaredTotal! - computedTotal).abs() < 0.05;
+      declaredTotal != null && (declaredTotal! - computedTotal - removedTotal).abs() < 0.05;
+
+  /// Moves the line at [index] to [removedItems].
+  PoItem removeItemAt(int index) {
+    final it = items.removeAt(index);
+    removedItems.add(it);
+    return it;
+  }
+
+  /// Puts a removed line back, in serial order.
+  void restoreItem(PoItem it) {
+    removedItems.remove(it);
+    items.add(it);
+    items.sort((a, b) => a.sl.compareTo(b.sl));
+  }
 
   DateTime? get poDateTime => parsePoDate(poDate);
 
@@ -158,6 +183,7 @@ class PurchaseOrder {
         'sourceFile': sourceFile,
         'pages': pages,
         'warnings': warnings,
+        'removedItems': removedItems.map((i) => i.toJson()).toList(),
       };
 
   factory PurchaseOrder.fromJson(Map<String, dynamic> j) => PurchaseOrder(
@@ -176,6 +202,7 @@ class PurchaseOrder {
         sourceFile: j['sourceFile'] as String? ?? '',
         pages: (j['pages'] as List? ?? const []).map((e) => (e as num).toInt()).toList(),
         warnings: (j['warnings'] as List? ?? const []).cast<String>(),
+        removedItems: (j['removedItems'] as List? ?? const []).map((e) => PoItem.fromJson(e as Map<String, dynamic>)).toList(),
       );
 
   /// Parses "16-Sep-2026" style dates.
