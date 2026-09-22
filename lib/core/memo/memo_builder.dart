@@ -144,11 +144,34 @@ class MemoBuilder {
       RegExp(r'\d+(?:\.\d+)?\s*(?:kg|gm|g|ml|l)\b', caseSensitive: false).firstMatch(name)?.group(0) ?? '';
 }
 
+/// Notes that are just a delivery mode, not a destination.
+const _genericNotes = {'', 'po', 'dsd', 'dd', 'direct'};
+
+/// True when the PO's Note names the real destination: the delivery address
+/// is a central warehouse and the note says which outlet the goods are for
+/// ("Daily Shopping - DLCL-WARE HOUSE-PATIRA" + note "BARISHAL-2").
+bool noteIsDestination(String outletName, String note) {
+  final n = note.trim().toLowerCase();
+  if (_genericNotes.contains(n)) return false;
+  final o = outletName.toLowerCase();
+  return o.contains('ware house') || o.contains('warehouse') || o.contains('dlcl');
+}
+
+/// Key under which a display name is remembered for an outlet. Warehouse POs
+/// are keyed by destination so each outlet keeps its own name.
+String outletKey(String outletName, String note) =>
+    noteIsDestination(outletName, note) ? '$outletName | ${note.trim()}' : outletName;
+
 /// Default display name for an outlet: the PO's outlet name with the hyphens
 /// the buyer's system inserts turned back into spaces.
 /// "BBUY-Mogbazar-Wireless Gate" -> "BBUY Mogbazar Wireless Gate".
-String defaultOutletDisplayName(String poOutletName) {
+/// When the note names the destination (warehouse delivery), the address is
+/// kept as printed and the note is appended in brackets:
+/// "Daily Shopping - DLCL-WARE HOUSE-PATIRA" + "BARISHAL-2"
+///   -> "Daily Shopping - DLCL-WARE HOUSE-PATIRA (BARISHAL-2)".
+String defaultOutletDisplayName(String poOutletName, {String note = ''}) {
   var s = poOutletName.trim();
+  if (noteIsDestination(s, note)) return '$s (${note.trim()})';
   s = s.replaceAll(RegExp(r'\s*-\s*'), ' ');
   s = s.replaceAll(RegExp(r'\s+'), ' ');
   return s.trim();

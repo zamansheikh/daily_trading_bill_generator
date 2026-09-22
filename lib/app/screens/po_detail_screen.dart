@@ -124,6 +124,7 @@ class PoDetailScreen extends StatelessWidget {
           InfoRow(label: 'Purchaser', child: Text(po.purchaser)),
           InfoRow(label: 'Outlet on PO', child: Text(po.outletName)),
           InfoRow(label: 'Address', child: Text(po.address)),
+          if (po.note.isNotEmpty) InfoRow(label: 'PO note', child: Text(po.note)),
           InfoRow(label: 'Source', child: Text('${po.sourceFile}  (page ${po.pages.join(', ')})')),
           if (order.memoPath != null)
             InfoRow(

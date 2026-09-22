@@ -78,7 +78,7 @@ class SeedCatalog {
     ('5000000900', 'Sagudana', 'সাগুদানা', '1kg', 210.00, true, null),
     ('5000000899', 'Sagudana', 'সাগুদানা', '500gm', 120.90, true, null),
     ('5000000626', 'Sagudana', 'সাগুদানা', '100gm', 27.00, true, 30.00),
-    ('5000000387', 'Star Masala', 'স্টার মসলা', '50gm', 95.20, true, null),
+    ('5000000386', 'Star Masala', 'স্টার মসলা', '50gm', 95.20, true, null),
     ('5000000947', 'Star Papor', 'স্টার পাপড়', '200gm', 35.75, false, null),
     ('5000000620', 'Suger Candy', 'তালমিছরি', '200gm', 47.60, true, 52.50),
     ('5000000622', 'Tamarind', 'তেঁতুল', '200gm', 48.30, true, null),

@@ -268,7 +268,8 @@ class _OrderCard extends StatelessWidget {
       const SizedBox(width: 8),
       ChainChip(po.chain, dense: compact),
     ]);
-    final meta = Text('${po.poNumber}  |  ${po.poDate}  |  ${po.items.length} items', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant));
+    final noteText = po.note.isEmpty ? '' : '  |  Note: ${po.note}';
+    final meta = Text('${po.poNumber}  |  ${po.poDate}  |  ${po.items.length} items$noteText', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant));
     final suggestions = state.suggestionsFor(order).where((s) => s.itemIndex != null || s.kind.name == 'outletName').length;
     final pills = Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
       StatusPill(icon: icon, label: status, color: color),

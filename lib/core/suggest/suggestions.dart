@@ -67,7 +67,7 @@ class SuggestionEngine {
     final chain = po.chain == Chain.unknown ? Chain.dailyShopping : po.chain;
 
     if (outletDisplayName.trim().isEmpty) {
-      final name = defaultOutletDisplayName(po.outletName);
+      final name = defaultOutletDisplayName(po.outletName, note: po.note);
       if (name.isNotEmpty) {
         out.add(Suggestion(kind: SuggestionKind.outletName, title: 'Name on memo is blank', detail: 'Use "$name" from the PO delivery address.', confidence: 0.9, textValue: name));
       }

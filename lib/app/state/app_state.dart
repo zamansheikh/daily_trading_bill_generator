@@ -147,7 +147,7 @@ class AppState extends ChangeNotifier {
         await db.saveAlias(po.chain, it.code, m.product!.id);
       }
     }
-    final display = await db.outletDisplayName(po.outletName) ?? defaultOutletDisplayName(po.outletName);
+    final display = await db.outletDisplayName(outletKey(po.outletName, po.note)) ?? defaultOutletDisplayName(po.outletName, note: po.note);
     final existing = await db.getOrder(po.poNumber);
     await db.saveOrder(po, outletDisplayName: display);
 
@@ -207,7 +207,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> setOutletDisplayName(ImportedOrder o, String name) async {
     o.outletDisplayName = name.trim();
-    await db.saveOutletDisplayName(o.po.outletName, o.outletDisplayName);
+    await db.saveOutletDisplayName(outletKey(o.po.outletName, o.po.note), o.outletDisplayName);
     await db.saveOrder(o.po, outletDisplayName: o.outletDisplayName);
     notifyListeners();
   }
@@ -277,7 +277,7 @@ class AppState extends ChangeNotifier {
         case SuggestionKind.outletName:
           if (order == null) continue;
           order.outletDisplayName = s.textValue!;
-          await db.saveOutletDisplayName(order.po.outletName, s.textValue!);
+          await db.saveOutletDisplayName(outletKey(order.po.outletName, order.po.note), s.textValue!);
         case SuggestionKind.price:
           await db.savePrice(s.chain!, s.productId!, s.numberValue);
           catalogChanged = true;

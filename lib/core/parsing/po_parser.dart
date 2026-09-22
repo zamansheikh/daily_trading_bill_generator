@@ -54,6 +54,11 @@ class _Columns {
   /// whose header right edge is nearest the word's right edge. This keeps a
   /// long wrapped product name out of the Unit column and a wide amount out
   /// of its neighbour.
+  /// How far a right-aligned number may end from its header's right edge.
+  /// Observed offsets are 3-5 pt; a "2" in a Note such as "PIP 2" sits far
+  /// outside this and therefore stays in the Note column.
+  static const double numericTolerance = 14;
+
   String columnOf(Word w) {
     final unitLeft = headers['Unit']!.left - slack;
     if (w.left >= unitLeft && _numberLike.hasMatch(w.text)) {
@@ -68,7 +73,7 @@ class _Columns {
           best = n;
         }
       }
-      return best;
+      if (bestDist <= numericTolerance) return best;
     }
     final text = headers.entries.where((e) => !numeric.contains(e.key)).toList()
       ..sort((a, b) => a.value.left.compareTo(b.value.left));

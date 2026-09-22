@@ -24,7 +24,7 @@ class MemoPdf {
   static const double _marginTop = 18;
   static const double _marginBottom = 14;
   static const double _contentWidth = 612 - 2 * _marginX; // Letter width 612
-  static const double _bannerHeight = 60;
+  static const double _bannerHeight = 62;
   static const double _infoRowHeight = 21;
   static const double _tableHeaderHeight = 17;
   static const double _totalRowHeight = 16;
@@ -71,11 +71,13 @@ class MemoPdf {
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
+            // The letterhead spans the full content width, like the Excel memo.
             pw.Container(
               height: _bannerHeight,
+              width: _contentWidth,
               decoration: const pw.BoxDecoration(border: pw.Border(top: _border, left: _border, right: _border)),
-              padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              child: pw.Image(banner, fit: pw.BoxFit.contain),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 3),
+              child: pw.Image(banner, fit: pw.BoxFit.fill, width: _contentWidth - 4, height: _bannerHeight - 6),
             ),
             _infoBlock(doc, regular, bold),
             _table(doc, rowsPerColumn, rowHeight, fontSize, regular, bold),

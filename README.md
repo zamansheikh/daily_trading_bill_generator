@@ -111,7 +111,8 @@ touching orders or memos.
 
 - Codes follow the buyers' POs. The old Excel template had Araroot 100gm and
   200gm codes swapped (5000000627 / 5000000628) and used the Cardamom code
-  for Isobgul Bhushi; the catalogue here uses the codes that appear on POs.
+  for Isobgul Bhushi, and 5000000387 for Star Masala (POs use 5000000386); the
+  catalogue here uses the codes that appear on POs.
 - "Order date" on the memo is filled with the PO date.
 - The Best Buy memo hides the seven products that never appear on Best Buy
   POs (papor items and walnut); toggle them in Catalogue if needed.

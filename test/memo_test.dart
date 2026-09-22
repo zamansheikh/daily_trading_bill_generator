@@ -72,6 +72,30 @@ void main() {
     }
   });
 
+  test('warehouse POs are named after the destination in the note', () {
+    expect(defaultOutletDisplayName('BBUY-Mogbazar-Wireless Gate', note: 'DSD'), 'BBUY Mogbazar Wireless Gate');
+    expect(defaultOutletDisplayName('Daily Shopping - NIKUNJA', note: 'PO'), 'Daily Shopping NIKUNJA');
+    expect(defaultOutletDisplayName('Daily Shopping - DLCL-WARE HOUSE-PATIRA', note: 'BARISHAL-2'), 'Daily Shopping - DLCL-WARE HOUSE-PATIRA (BARISHAL-2)');
+    expect(defaultOutletDisplayName('Daily Shopping - DLCL-WARE HOUSE-PATIRA', note: 'COX\u2019S BAZAR-2'), 'Daily Shopping - DLCL-WARE HOUSE-PATIRA (COX\u2019S BAZAR-2)');
+    expect(outletKey('Daily Shopping - DLCL-WARE HOUSE-PATIRA', 'HIP-1'), 'Daily Shopping - DLCL-WARE HOUSE-PATIRA | HIP-1');
+    expect(outletKey('Daily Shopping - NIKUNJA', 'PO'), 'Daily Shopping - NIKUNJA');
+
+    const f = 'sample_pdf/inputs/BARISHAL-2_merged.pdf';
+    final r = parser.parseBytes(File(f).readAsBytesSync(), sourceFile: f);
+    expect(r.orders.length, 63);
+    expect(r.orders.where((o) => o.totalsMatch).length, 63);
+    expect(r.orders.expand((o) => o.warnings), isEmpty, reason: 'a Note like "PIP 2" must not leak into the Total column');
+    final names = r.orders.map((o) => defaultOutletDisplayName(o.outletName, note: o.note)).toSet();
+    expect(names.length, 62); // two POs go to COMILLA POLICE LINE NEW
+    expect(names, contains('Daily Shopping - DLCL-WARE HOUSE-PATIRA (BARISHAL-2)'));
+    for (final o in r.orders) {
+      for (final it in o.items) {
+        expect(matcher.match(o.chain, it).product, isNotNull, reason: '${o.poNumber} ${it.name}');
+      }
+    }
+    expect(matcher.match(Chain.dailyShopping, r.orders.first.items[3]).kind, MatchKind.code, reason: 'Star Masala by code');
+  });
+
   test('memo for the reference PO reproduces the reference memo values', () async {
     const f = 'sample_pdf/inputs/Daily Trading PO DSD 16.09.26.pdf';
     final r = parser.parseBytes(File(f).readAsBytesSync(), sourceFile: f);
