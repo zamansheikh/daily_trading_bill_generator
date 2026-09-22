@@ -3,7 +3,7 @@
 ; Then compile this script with Inno Setup 6 (https://jrsoftware.org/isinfo.php).
 
 #define AppName "Daily Trading Bill Generator"
-#define AppVersion "1.0.0"
+#define AppVersion "1.1.0"
 #define AppPublisher "Daily Trading Corporation"
 #define AppExe "daily_trading_bill_generator.exe"
 #define BuildDir "..\build\windows\x64\runner\Release"
