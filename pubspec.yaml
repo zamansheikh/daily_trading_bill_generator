@@ -1,0 +1,68 @@
+name: daily_trading_bill_generator
+description: "Daily Trading Corporation - purchase order to memo (bill) generator."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # PDF reading (pure Dart, positional text extraction)
+  syncfusion_flutter_pdf: ^34.2.9
+
+  # PDF writing + Bangla shaping
+  pdf: ^3.11.3
+  printing: ^5.14.2
+  bangla_pdf: ^1.9.2
+
+  # Files & platform
+  file_picker: ^10.3.8
+  desktop_drop: ^0.7.0
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  open_filex: ^4.7.0
+  share_plus: ^12.0.1
+
+  # Storage
+  sqflite: ^2.4.2
+  sqflite_common_ffi: 2.3.6
+  sqlite3_flutter_libs: ^0.5.24
+  shared_preferences: ^2.5.4
+
+  # State & utils
+  provider: ^6.1.5
+  intl: ^0.20.2
+  collection: ^1.19.1
+  uuid: ^4.5.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_driver:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  image: ^4.10.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+  android: true
+  adaptive_icon_background: "#1B5E20"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  ios: true
+  remove_alpha_ios: true
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    icon_size: 256
