@@ -65,9 +65,16 @@ Test memos are written to `build/test_memos/` when the tests run.
 
 ### Windows installer
 
+On a Windows PC:
+
 1. `flutter build windows --release`
 2. Open `installer/daily_trading_bill_generator.iss` in Inno Setup 6 and
    click Compile. The setup exe lands in `installer/output/`.
+
+Or let GitHub build it: push the repository to GitHub and run the
+"Windows installer" workflow (`.github/workflows/windows-installer.yml`) from
+the Actions tab, or push a tag such as `v1.0.0`. The setup exe is attached as
+an artifact, and to the release for tags.
 
 The installer uses the app icon, closes a running copy before upgrading and
 offers a desktop shortcut.
