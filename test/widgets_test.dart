@@ -56,6 +56,12 @@ void main() {
       expect(tester.takeException(), isNull, reason: tab);
     }
     expect(find.text('Next memo number'), findsOneWidget);
+    // Developer credit sits at the bottom of the settings list.
+    await tester.scrollUntilVisible(find.text('github.com/zamansheikh'), 300, scrollable: find.byType(Scrollable).last);
+    await tester.pumpAndSettle();
+    expect(find.text('fb.com/zamansheikh.404'), findsOneWidget);
+    expect(find.text('Restore shipped catalogue'), findsOneWidget);
+    expect(tester.takeException(), isNull);
 
     // Catalogue edit dialog.
     await tester.tap(find.text('Catalogue').last);

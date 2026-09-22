@@ -397,6 +397,21 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Restores the shipped catalogue (products, prices, aliases).
+  Future<void> resetCatalog() async {
+    await db.resetCatalogToDefaults();
+    await _reloadCatalog();
+    // Product ids changed; re-match the orders in the working list.
+    for (final o in orders) {
+      for (var i = 0; i < o.po.items.length; i++) {
+        final m = matcher.match(o.po.chain, o.po.items[i]);
+        o.po.items[i].productId = m.product?.id;
+        o.matchKinds[i] = m.kind;
+      }
+    }
+    notifyListeners();
+  }
+
   Future<void> deleteProduct(int id) async {
     await db.deleteProduct(id);
     await _reloadCatalog();

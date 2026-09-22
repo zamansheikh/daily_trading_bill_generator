@@ -41,6 +41,11 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Open web links (developer credit) in the browser. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
         <!-- Let the app find a PDF viewer to open generated memos with. -->
         <intent>
             <action android:name="android.intent.action.VIEW"/>

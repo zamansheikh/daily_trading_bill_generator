@@ -110,6 +110,19 @@ class AppDatabase {
   Future<void> _seedIfEmpty() async {
     final n = Sqflite.firstIntValue(await _db.rawQuery('SELECT COUNT(*) FROM products')) ?? 0;
     if (n > 0) return;
+    await _seed();
+  }
+
+  /// Throws away every product, price and code alias and reloads the
+  /// catalogue that ships with the app. Orders, memos and settings are kept.
+  Future<void> resetCatalogToDefaults() async {
+    await _db.delete('products');
+    await _db.delete('chain_products');
+    await _db.delete('code_aliases');
+    await _seed();
+  }
+
+  Future<void> _seed() async {
     final seed = SeedCatalog.build();
     await _db.transaction((txn) async {
       final idMap = <int, int>{};
@@ -138,7 +151,7 @@ class AppDatabase {
         final pid = seed.byDtCode(e.value)!.id;
         await txn.insert('code_aliases', {'chain': Chain.bestBuy.id, 'code': e.key, 'product_id': idMap[pid]});
       }
-      await txn.insert('settings', {'key': 'next_memo_number', 'value': '1'});
+      await txn.insert('settings', {'key': 'next_memo_number', 'value': '1'}, conflictAlgorithm: ConflictAlgorithm.ignore);
     });
   }
 

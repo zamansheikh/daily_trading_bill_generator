@@ -92,6 +92,14 @@ on desktop and tablets, a bottom bar on phones. Order lists become full-width
 tiles and the items table becomes cards below 600px. `test/widgets_test.dart`
 renders every screen at phone, tablet and desktop sizes.
 
+## Built-in catalogue
+
+The catalogue that ships with the app (78 products, Bangla names, Daily
+Shopping and Best Buy price lists, Best Buy code aliases) is written into the
+database on first launch. Add or edit products in the Catalogue tab; Settings
+has "Restore shipped catalogue" to go back to the built-in data without
+touching orders or memos.
+
 ## Notes on the data
 
 - Codes follow the buyers' POs. The old Excel template had Araroot 100gm and
