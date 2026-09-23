@@ -208,12 +208,12 @@ class OrderSheetXlsx {
       _text(ws.getRangeByIndex(y, banglaCol), r.bangla, size: 8, font: _bangla, wrap: true);
       final grams = _grams(r.size);
       if (bb && grams != null) {
-        _num(ws.getRangeByIndex(y, wtCol), grams, format: '0.##');
+        _num(ws.getRangeByIndex(y, wtCol), grams, format: 'General');
       } else {
         _text(ws.getRangeByIndex(y, wtCol), r.size, size: 7, center: true);
       }
       _num(ws.getRangeByIndex(y, tpCol), r.tradePrice, format: '0.00');
-      _num(ws.getRangeByIndex(y, mrpCol), r.mrp, format: '0.##');
+      _num(ws.getRangeByIndex(y, mrpCol), r.mrp, format: 'General');
       var grand = 0.0;
       for (var b = 0; b < blockCount; b++) {
         final start = b * outletsPerBlock;
@@ -222,7 +222,7 @@ class OrderSheetXlsx {
         for (var k = start; k < end; k++) {
           final c = sorted[k];
           final q = r.qty[c];
-          _num(ws.getRangeByIndex(y, colOf[c]!), q, format: '0.##');
+          _num(ws.getRangeByIndex(y, colOf[c]!), q, format: 'General');
           blockSum += q ?? 0;
         }
         final firstX = _colName(colOf[sorted[start]]!);
@@ -234,7 +234,7 @@ class OrderSheetXlsx {
         } else {
           tcell.setNumber(0);
         }
-        _style(tcell, size: 8, bold: true, fill: _totalFill, format: '0.##');
+        _style(tcell, size: 8, bold: true, fill: _totalFill, format: 'General');
         grand += blockSum;
       }
       final gcell = ws.getRangeByIndex(y, grandCol);
@@ -244,7 +244,7 @@ class OrderSheetXlsx {
         gcell.setFormula('=${blockTotalCols.map((x) => '${_colName(x)}$y').join('+')}');
         gcell.setFormulaNumberValue(grand);
       }
-      _style(gcell, size: 8, bold: true, fill: _totalFill, format: '0.##');
+      _style(gcell, size: 8, bold: true, fill: _totalFill, format: 'General');
       final kg = _kg(r.size);
       final kcell = ws.getRangeByIndex(y, kgCol);
       if (kg != null) {
@@ -254,7 +254,7 @@ class OrderSheetXlsx {
             : '=ROUND(${_colName(grandCol)}$y*$kg,3)');
         kcell.setFormulaNumberValue(_round3(grand * kg));
       }
-      _style(kcell, size: 8, fill: _totalFill, format: '0.##');
+      _style(kcell, size: 8, fill: _totalFill, format: 'General');
     }
 
     final lastRow = bb ? lastDataRow : amountRow;

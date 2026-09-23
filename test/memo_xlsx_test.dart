@@ -54,6 +54,26 @@ void main() {
     expect(shared, contains('Supply Date:'));
     expect(shared, contains('Name/address:'));
     expect(shared, contains('Amount in Total'));
+
+    // User's sizes: data rows 16.5 pt, displayed widths SL 1.14, English name
+    // 12.71, Bangla name 8.57, Size 4.14, Amount 6.29 (Excel stores +0.71).
+    for (final r in [9, 44]) {
+      expect(RegExp('<row [^>]*r="$r"[^>]*>').firstMatch(sheet)!.group(0), contains('ht="16.5"'), reason: 'row $r');
+    }
+    double width(int col) => double.parse(RegExp('<col min="$col" max="$col" width="([\\d.]+)"').firstMatch(sheet)!.group(1)!);
+    expect(width(1), closeTo(1.14 + 0.714, 0.01));
+    expect(width(3), closeTo(12.71 + 0.714, 0.01));
+    expect(width(4), closeTo(8.57 + 0.714, 0.01));
+    expect(width(5), closeTo(4.14 + 0.714, 0.01));
+    expect(width(8), closeTo(6.29 + 0.714, 0.01));
+    // One font everywhere: Kalpurush 7.
+    final st = read('xl/styles.xml');
+    final sizes = RegExp(r'<sz val="([\d.]+)"').allMatches(st).map((m) => m.group(1)).toSet();
+    final names = RegExp(r'<name val="([^"]+)"').allMatches(st).map((m) => m.group(1)).toSet();
+    expect(sizes.difference({'11', '11.0', '7', '7.0'}), isEmpty, reason: 'only the default 11 and 7: $sizes');
+    expect(names.difference({'Calibri', 'Kalpurush'}), isEmpty, reason: '$names');
+    // Quantities use General, so 12 never shows as "12.".
+    expect(st, isNot(contains('formatCode="0.##"')));
     expect(zip.files.any((e) => e.name.startsWith('xl/media/')), isTrue, reason: 'banner image embedded');
     // 71 rows -> 36 per column -> rows 9..44.
     expect(sheet, contains('r="44"'));

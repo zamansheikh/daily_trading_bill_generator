@@ -21,6 +21,9 @@ class MemoXlsx {
   static const _white = '#FFFFFF';
   static const _grey = '#EDEDED';
 
+  /// Every cell uses Kalpurush at this size.
+  static const double _fontSize = 7;
+
   /// White margin added around the banner inside the workbook, as a fraction
   /// of its width (sides) and height (top/bottom). The source image is
   /// cropped tight, so without this the logos touch the cell borders.
@@ -51,10 +54,10 @@ class MemoXlsx {
   static const _latin = 'Kalpurush';
   static const _bangla = 'Kalpurush';
 
-  /// Column widths (Excel character units) for one half of the table, taken
-  /// from the user's Excel memo template (about 106 units in total, which
-  /// prints on A4 portrait at 100%).
-  static const List<double> _half = [2.3, 9.3, 11.1, 8.6, 4.7, 4.6, 5.2, 7.5];
+  /// Column widths as Excel displays them, for one half of the table:
+  /// SL 1.14, Code 9.3, English name 12.71, Bangla name 8.57, Size 4.14,
+  /// Qty 4.6, Unit price 5.2, Amount 6.29 (the user's specification).
+  static const List<double> _half = [1.14, 9.3, 12.71, 8.57, 4.14, 4.6, 5.2, 6.29];
 
   List<int> build(MemoDocument doc) {
     final wb = Workbook();
@@ -110,7 +113,7 @@ class MemoXlsx {
       s.fontColor = _white;
       s.bold = true;
       s.fontName = _latin;
-      s.fontSize = 7;
+      s.fontSize = _fontSize;
       s.hAlign = HAlignType.center;
       s.vAlign = VAlignType.center;
       s.wrapText = true;
@@ -120,12 +123,11 @@ class MemoXlsx {
     // Rows.
     final rowsPerColumn = (doc.rows.length + 1) ~/ 2;
     const firstRow = headerRow + 1;
-    // 36 rows (Best Buy) print at 21 px; 39 rows (Daily Shopping) at 20 px so
-    // the page still fits A4 portrait.
-    final rowPx = rowsPerColumn > 36 ? 20 : 21;
+    // Data rows (9 to 44 for Best Buy, 9 to 47 for Daily Shopping) are
+    // 16.5 pt high.
     for (var i = 0; i < rowsPerColumn; i++) {
       final excelRow = firstRow + i;
-      ws.setRowHeightInPixels(excelRow, rowPx.toDouble());
+      ws.getRangeByIndex(excelRow, 1).rowHeight = 16.5;
       final shaded = i.isOdd;
       _memoRow(ws, excelRow, 1, doc.rows[i], shaded);
       final j = i + rowsPerColumn;
@@ -141,7 +143,7 @@ class MemoXlsx {
     _eachCell(totalLabel, (c) {
       c.cellStyle
         ..fontName = _latin
-        ..fontSize = 9
+        ..fontSize = _fontSize
         ..hAlign = HAlignType.left
         ..vAlign = VAlignType.center
         ..indent = 1;
@@ -154,7 +156,7 @@ class MemoXlsx {
     total.numberFormat = '#,##0.00';
     total.cellStyle
       ..fontName = _latin
-      ..fontSize = 10
+      ..fontSize = _fontSize
       ..bold = true
       ..hAlign = HAlignType.right
       ..vAlign = VAlignType.center;
@@ -168,7 +170,7 @@ class MemoXlsx {
       _eachCell(r, (c) {
         c.cellStyle
           ..fontName = _latin
-          ..fontSize = 8
+          ..fontSize = _fontSize
           ..hAlign = HAlignType.center
           ..borders.top.lineStyle = LineStyle.thin;
       });
@@ -207,7 +209,7 @@ class MemoXlsx {
       final cell = ws.getRangeByIndex(row, startCol + c);
       final s = cell.cellStyle;
       s.fontName = c == 3 ? _bangla : _latin;
-      s.fontSize = 8;
+      s.fontSize = _fontSize;
       s.hAlign = HAlignType.center;
       s.vAlign = VAlignType.center;
       if (shaded) s.backColor = _grey;
@@ -228,7 +230,8 @@ class MemoXlsx {
           cell.setText(r.size);
         case 5:
           if (r.quantity != null) cell.setNumber(r.quantity!);
-          cell.numberFormat = '0.##';
+          // General shows 12 as 12 and 1.5 as 1.5; '0.##' would show "12.".
+          cell.numberFormat = 'General';
         case 6:
           if (r.price != null) cell.setNumber(r.price!);
           cell.numberFormat = '#,##0.00';
@@ -258,7 +261,7 @@ class MemoXlsx {
         ..fontColor = _white
         ..bold = true
         ..fontName = _latin
-        ..fontSize = size
+        ..fontSize = _fontSize
         ..hAlign = HAlignType.center
         ..vAlign = VAlignType.center;
       _thin(c);
@@ -272,7 +275,7 @@ class MemoXlsx {
       c.cellStyle
         ..bold = true
         ..fontName = _latin
-        ..fontSize = size
+        ..fontSize = _fontSize
         ..hAlign = HAlignType.left
         ..vAlign = VAlignType.center
         ..indent = 1;
